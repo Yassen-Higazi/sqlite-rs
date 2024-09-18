@@ -1,9 +1,10 @@
 mod header;
+mod schema;
+mod database;
+
+use crate::database::Database;
 
 use anyhow::{bail, Result};
-use std::fs::File;
-use std::io::prelude::*;
-use crate::header::DBHeader;
 
 fn main() -> Result<()> {
     // Parse arguments
@@ -16,23 +17,12 @@ fn main() -> Result<()> {
     }
 
     // Parse command and act accordingly
+    let db_file_name = &args[1];
     let command = &args[2];
 
-    let mut file = File::open(&args[1])?;
+    let db = Database::new(db_file_name)?;
 
-    match command.as_str() {
-        ".dbinfo" => {
-
-            let mut header = [0; 100];
-
-            file.read_exact(&mut header)?;
-
-            let db_headers = DBHeader::new(&header);
-
-            println!("{}", db_headers);
-        }
-        _ => bail!("Missing or invalid command passed: {}", command),
-    }
+    db.execute_command(command)?;
 
     Ok(())
 }
