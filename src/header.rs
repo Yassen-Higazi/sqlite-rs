@@ -1,7 +1,9 @@
-use std::fmt::{Display, Formatter};
 use crate::header::TextEncoding::{Utf16be, Utf16le, Utf8};
+use anyhow::{Context, Result};
+use std::fmt::{Display, Formatter};
 
-#[derive(Debug)]
+
+#[derive(Debug, Clone)]
 pub enum TextEncoding {
     Utf8,
     Utf16le,
@@ -24,15 +26,15 @@ impl From<u32> for TextEncoding {
 impl Display for TextEncoding {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Utf8 => {write!(f, "1 (utf-8)")}
-            Utf16le => {write!(f, "2 (utf-16le)")}
-            Utf16be => {write!(f, "1 (utf-16b3)")}
+            Utf8 => { write!(f, "1 (utf-8)") }
+            Utf16le => { write!(f, "2 (utf-16le)") }
+            Utf16be => { write!(f, "1 (utf-16b3)") }
         }
     }
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DBHeader {
     pub header: String,
     pub db_size: u32,
@@ -62,14 +64,14 @@ pub struct DBHeader {
 }
 
 impl DBHeader {
-    pub fn new(buffer: &[u8; 100]) -> Self {
-        let header = std::str::from_utf8(&buffer[0..15]).unwrap().to_string();
+    pub fn new(buffer: &[u8]) -> Result<Self> {
+        let header = std::str::from_utf8(&buffer[0..15]).with_context(|| "Can not parse header")?.to_string();
 
         let page_size = u16::from_be_bytes([buffer[16], buffer[17]]);
 
         let file_read_version = u8::from_be_bytes([buffer[18]]);
 
-        let file_write_version= u8::from_be_bytes([buffer[19]]);
+        let file_write_version = u8::from_be_bytes([buffer[19]]);
 
         let reserved_bytes_per_page = u16::from_be_bytes([buffer[20], buffer[21]]);
 
@@ -101,7 +103,7 @@ impl DBHeader {
 
         let sqlite_version_number = u32::from_be_bytes([buffer[96], buffer[97], buffer[98], buffer[99]]);
 
-        Self {
+        Ok(Self {
             header,
             db_size,
             page_size,
@@ -125,8 +127,8 @@ impl DBHeader {
             min_embedded_format: 32,
             leaf_payload_fraction: 32,
 
-            text_encoding: TextEncoding::from(text_encoding)
-        }
+            text_encoding: TextEncoding::from(text_encoding),
+        })
     }
 
     fn is_db_size_valid(&self) -> bool {
@@ -167,22 +169,21 @@ number of triggers:  0
 number of views:     0
 ",
                self.page_size,
-            self.file_write_version,
-            self.file_read_version,
-            self.reserved_bytes_per_page,
-            self.file_change_counter,
-            self.first_free_page + self.free_page_list_size,
-            self.free_page_list_size,
-            self.schema_cookie,
-            self.schema_format_number,
-            self.suggested_cache_size,
-            self.auto_vacuum,
-            self.incremental_vacuum,
-            self.text_encoding,
-            self.user_version_number,
-            self.application_id,
-            self.sqlite_version_number,
+               self.file_write_version,
+               self.file_read_version,
+               self.reserved_bytes_per_page,
+               self.file_change_counter,
+               self.first_free_page + self.free_page_list_size,
+               self.free_page_list_size,
+               self.schema_cookie,
+               self.schema_format_number,
+               self.suggested_cache_size,
+               self.auto_vacuum,
+               self.incremental_vacuum,
+               self.text_encoding,
+               self.user_version_number,
+               self.application_id,
+               self.sqlite_version_number,
         )
-
     }
 }
