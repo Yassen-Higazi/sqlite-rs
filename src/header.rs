@@ -13,7 +13,7 @@ pub enum TextEncoding {
 impl From<u32> for TextEncoding {
     fn from(value: u32) -> Self {
         match value {
-            1u32 => Utf8,
+            1 => Utf8,
             2 => Utf16le,
             3 => Utf16be,
             _ => {
@@ -28,7 +28,7 @@ impl Display for TextEncoding {
         match self {
             Utf8 => { write!(f, "1 (utf-8)") }
             Utf16le => { write!(f, "2 (utf-16le)") }
-            Utf16be => { write!(f, "1 (utf-16b3)") }
+            Utf16be => { write!(f, "3 (utf-16be)") }
         }
     }
 }
@@ -36,7 +36,6 @@ impl Display for TextEncoding {
 
 #[derive(Debug, Clone)]
 pub struct DBHeader {
-    pub header: String,
     pub db_size: u32,
     pub file_read_version: u8,
     pub file_write_version: u8,
@@ -65,7 +64,6 @@ pub struct DBHeader {
 
 impl DBHeader {
     pub fn new(buffer: &[u8]) -> Result<Self> {
-        let header = std::str::from_utf8(&buffer[0..15]).with_context(|| "Can not parse header")?.to_string();
 
         let page_size = u16::from_be_bytes([buffer[16], buffer[17]]);
 
@@ -104,7 +102,6 @@ impl DBHeader {
         let sqlite_version_number = u32::from_be_bytes([buffer[96], buffer[97], buffer[98], buffer[99]]);
 
         Ok(Self {
-            header,
             db_size,
             page_size,
             auto_vacuum,
@@ -162,12 +159,7 @@ incremental vacuum:  {}
 text encoding:       {}
 user version:        {}
 application id:      {}
-software version:    {}
-number of tables:    3
-number of indexes:   0
-number of triggers:  0
-number of views:     0
-",
+software version:    {}",
                self.page_size,
                self.file_write_version,
                self.file_read_version,

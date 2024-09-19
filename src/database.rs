@@ -14,19 +14,19 @@ impl Database {
     pub fn new(db_file_name: &String) -> Result<Self> {
         let mut file = File::open(&db_file_name)?;
 
-        let mut header_buff = [0u8; 100];
-
-        file.read_exact(&mut header_buff)?;
-
-        let page_size = u16::from_be_bytes([header_buff[16], header_buff[17]]);
-
-        let mut page_buffer = vec![0u8; page_size as usize];
+        let mut page_buffer = vec![0u8; 6000];
 
         file.read_exact(&mut page_buffer)?;
 
+        let page_size = u16::from_le_bytes([page_buffer[16], page_buffer[17]]) * 256;
+
         let root_page = Page::new(&page_buffer, page_size)?;
 
-        let db = Self { header: root_page.header.clone(), db_file_name: db_file_name.clone(), root_page };
+        let db = Self {
+            header: root_page.header.clone(),
+            db_file_name: db_file_name.clone(),
+            root_page,
+        };
 
         Ok(db)
     }
@@ -34,7 +34,7 @@ impl Database {
     pub fn execute_command(&self, command: &String) -> Result<()> {
         match command.as_str() {
             ".dbinfo" => {
-                println!("{}", self.header);
+                println!("{}\nnumber of tables:    {}", self.header, self.root_page.num_of_cells);
             }
             _ => bail!("Missing or invalid command passed: {}", command),
         }

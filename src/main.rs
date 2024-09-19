@@ -14,11 +14,13 @@ fn main() -> Result<()> {
     match args.len() {
         0 | 1 => bail!("Missing <database path> and <command>"),
         2 => bail!("Missing <command>"),
-        _ => {}
+        3 => {}
+        l => bail!("Expected 2 arguments but got {}", l)
     }
 
     // Parse command and act accordingly
     let db_file_name = &args[1];
+
     let command = &args[2];
 
     let db = Database::new(db_file_name)?;
