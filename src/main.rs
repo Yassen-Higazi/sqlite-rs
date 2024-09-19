@@ -2,6 +2,7 @@ mod header;
 mod schema;
 mod database;
 mod page;
+mod cell;
 
 use crate::database::Database;
 

@@ -1,9 +1,9 @@
-use std::fmt::{Display, Formatter};
-use anyhow::Result;
-
+use crate::cell::PageCell;
 use crate::header::DBHeader;
 use crate::page::BTreePageSubType::{IndexInterior, IndexLeaf, TableInterior, TableLeaf};
 use crate::page::PageTypes::BTree;
+use anyhow::{Context, Result};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BTreePageSubType {
@@ -50,6 +50,7 @@ pub struct Page {
     pub num_of_fragmented_free_bytes: u8,
     pub right_most_pointer: Option<u32>,
     pub cell_pointers: Vec<u16>,
+    pub cells: Vec<PageCell>,
 
     page_buffer: Vec<u8>,
 }
@@ -72,6 +73,7 @@ impl Page {
 
         let right_most_pointer = if right_most_pointer_value == 0 { None } else { Some(right_most_pointer_value) };
 
+        let mut cell: Vec<PageCell> = Vec::with_capacity(num_of_cells as usize);
         let mut cell_pointers = Vec::with_capacity(num_of_cells as usize);
 
         let cell_pointers_start_index = 112;
@@ -82,9 +84,14 @@ impl Page {
         for i in (cell_pointers_start_index..cell_pointers_end_index).step_by(2) {
             let i: usize = i as usize;
 
-            let pointer = u16::from_be_bytes([buffer[i], buffer[i+1]]);
+            let pointer = u16::from_be_bytes([buffer[i], buffer[i + 1]]);
 
             cell_pointers.push(pointer);
+
+            PageCell::new(&buffer[(pointer as usize)..buffer.len()].to_vec(), page_type)
+                .with_context(|| format!("could not initiate page Cell as: {}", pointer))?;
+
+            // cell.push();
         }
 
         Ok(Self {
@@ -96,12 +103,13 @@ impl Page {
             free_block_start,
             content_area_start,
             right_most_pointer,
+            cells: cell,
             num_of_fragmented_free_bytes,
             page_buffer: buffer.clone(),
         })
     }
 
-    fn cell_content_area_offset(&self) -> u16{
+    fn cell_content_area_offset(&self) -> u16 {
         // the offset to the cell content area will equal the page size minus the bytes of reserved space
         let (value, is_overflowing) = self.page_size.overflowing_sub(self.header.reserved_bytes_per_page);
 
