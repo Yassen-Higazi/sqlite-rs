@@ -1,5 +1,4 @@
-use crate::header::TextEncoding::{Utf16be, Utf16le, Utf8};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::fmt::{Display, Formatter};
 
 
@@ -13,9 +12,9 @@ pub enum TextEncoding {
 impl From<u32> for TextEncoding {
     fn from(value: u32) -> Self {
         match value {
-            1 => Utf8,
-            2 => Utf16le,
-            3 => Utf16be,
+            1 => TextEncoding::Utf8,
+            2 => TextEncoding::Utf16le,
+            3 => TextEncoding::Utf16be,
             _ => {
                 panic!("Invalid Text Encoding")
             }
@@ -26,9 +25,9 @@ impl From<u32> for TextEncoding {
 impl Display for TextEncoding {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Utf8 => { write!(f, "1 (utf-8)") }
-            Utf16le => { write!(f, "2 (utf-16le)") }
-            Utf16be => { write!(f, "3 (utf-16be)") }
+            TextEncoding::Utf8 => { write!(f, "1 (utf-8)") }
+            TextEncoding::Utf16le => { write!(f, "2 (utf-16le)") }
+            TextEncoding::Utf16be => { write!(f, "3 (utf-16be)") }
         }
     }
 }
@@ -64,7 +63,6 @@ pub struct DBHeader {
 
 impl DBHeader {
     pub fn new(buffer: &[u8]) -> Result<Self> {
-
         let page_size = u16::from_be_bytes([buffer[16], buffer[17]]);
 
         let file_read_version = u8::from_be_bytes([buffer[18]]);

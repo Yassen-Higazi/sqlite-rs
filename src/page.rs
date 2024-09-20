@@ -1,7 +1,7 @@
 use crate::cell::PageCell;
 use crate::header::DBHeader;
-use crate::page::BTreePageSubType::{IndexInterior, IndexLeaf, TableInterior, TableLeaf};
 use crate::page::PageTypes::BTree;
+
 use anyhow::{Context, Result};
 use std::fmt::Display;
 
@@ -26,10 +26,10 @@ pub enum PageTypes {
 impl From<&u8> for PageTypes {
     fn from(value: &u8) -> Self {
         let page_type = match value {
-            2 => BTree(IndexInterior),
-            5 => BTree(IndexLeaf),
-            10 => BTree(TableInterior),
-            13 => BTree(TableLeaf),
+            2 => BTree(BTreePageSubType::IndexInterior),
+            5 => BTree(BTreePageSubType::IndexLeaf),
+            10 => BTree(BTreePageSubType::TableInterior),
+            13 => BTree(BTreePageSubType::TableLeaf),
             _ => {
                 panic!("Invalid Page Type")
             }
@@ -51,8 +51,6 @@ pub struct Page {
     pub right_most_pointer: Option<u32>,
     pub cell_pointers: Vec<u16>,
     pub cells: Vec<PageCell>,
-
-    page_buffer: Vec<u8>,
 }
 
 impl Page {
@@ -73,11 +71,11 @@ impl Page {
 
         let right_most_pointer = if right_most_pointer_value == 0 { None } else { Some(right_most_pointer_value) };
 
-        let mut cell: Vec<PageCell> = Vec::with_capacity(num_of_cells as usize);
+        let mut cells: Vec<PageCell> = Vec::with_capacity(num_of_cells as usize);
         let mut cell_pointers = Vec::with_capacity(num_of_cells as usize);
 
-        let cell_pointers_start_index = 112;
-
+        let cell_pointers_start_index = 108;
+        
         // each cell is 2 bytes
         let cell_pointers_end_index = cell_pointers_start_index + num_of_cells * 2;
 
@@ -88,13 +86,18 @@ impl Page {
 
             cell_pointers.push(pointer);
 
-            PageCell::new(&buffer[(pointer as usize)..buffer.len()].to_vec(), page_type)
-                .with_context(|| format!("could not initiate page Cell as: {}", pointer))?;
+            if pointer != 0 {
+                let cell_vec = &buffer[(pointer as usize)..].to_vec();
 
-            // cell.push();
+                let cell = PageCell::new(&cell_vec.to_vec(), page_type, &header.text_encoding)
+                    .with_context(|| format!("could not initiate page Cell as: {}", pointer))?;
+
+                cells.push(cell);
+            }
         }
 
         Ok(Self {
+            cells,
             header,
             page_size,
             page_type,
@@ -103,9 +106,7 @@ impl Page {
             free_block_start,
             content_area_start,
             right_most_pointer,
-            cells: cell,
             num_of_fragmented_free_bytes,
-            page_buffer: buffer.clone(),
         })
     }
 

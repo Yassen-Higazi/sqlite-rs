@@ -3,6 +3,7 @@ mod schema;
 mod database;
 mod page;
 mod cell;
+mod utils;
 
 use crate::database::Database;
 

@@ -1,36 +1,113 @@
 use crate::page::{BTreePageSubType, PageTypes};
+
+use crate::header::TextEncoding;
+use crate::utils::parse_varint;
 use anyhow::{bail, Context, Result};
 use integer_encoding::VarInt;
 
 #[derive(Clone, Debug)]
+pub enum ColumnTypes {
+    Null,
+    Be8bitsInt,
+    Be24bitsInt,
+    Be16bitsInt,
+    Be32bitsInt,
+    Be48bitsInt,
+    Be64bitsInt,
+    Be64bitsFloat,
+    Zero,
+    One,
+    Internal(u64),
+    Blob(u64),
+    Text(u64),
+}
+
+impl ColumnTypes {
+    fn new(value: u64) -> Result<Self> {
+        let col_type = match value {
+            0 => ColumnTypes::Null,
+            1 => ColumnTypes::Be8bitsInt,
+            2 => ColumnTypes::Be24bitsInt,
+            3 => ColumnTypes::Be16bitsInt,
+            4 => ColumnTypes::Be32bitsInt,
+            5 => ColumnTypes::Be48bitsInt,
+            6 => ColumnTypes::Be64bitsInt,
+            7 => ColumnTypes::Be64bitsFloat,
+            8 => ColumnTypes::Zero,
+            9 => ColumnTypes::One,
+            10 | 11 => ColumnTypes::Internal(value),
+            _ => {
+                if value >= 12 && value % 2 == 0 {
+                    ColumnTypes::Blob((value - 12) / 2)
+                } else if value >= 13 && value % 2 == 1 {
+                    ColumnTypes::Text((value - 12) / 2)
+                } else {
+                    bail!("Invalid Column Type, {value}")
+                }
+            }
+        };
+
+        Ok(col_type)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Record {
     pub size: u32,
-    pub column_types: Vec<u32>,
-    pub body: Vec<Vec<u8>>,
+    pub body: Vec<u8>,
+    pub column_types: Vec<ColumnTypes>,
 }
 
 impl Record {
-    pub fn new(buffer: &Vec<u8>, value: PageTypes) -> Result<Self> {
+    fn from_table_leaf(buffer: &Vec<u8>, encoding: &TextEncoding) -> Result<Self> {
+        let (header_size, size_var_end) = u32::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
+
+        let mut next_index = size_var_end;
+
+        let body = buffer[header_size as usize..].to_vec();
+
+        let mut column_types = Vec::<ColumnTypes>::with_capacity(header_size as usize);
+
+        let mut bytes = &buffer[next_index..];
+
+        while next_index < header_size as usize {
+            let (column, column_bytes, column_size) = parse_varint(bytes).with_context(|| "Could not decode Record serial Type")?;
+
+            bytes = column_bytes;
+
+            let col_type = ColumnTypes::new(column)?;
+
+            column_types.push(col_type);
+
+            next_index += column_size;
+        }
+
+        Ok(Self {
+            body,
+            column_types,
+            size: header_size,
+        })
+    }
+}
+
+impl Record {
+    pub fn new(buffer: &Vec<u8>, value: PageTypes, encoding: &TextEncoding) -> Result<Self> {
         match value {
-            PageTypes::BTree(bTee_type) => {
-                match bTee_type {
-                    BTreePageSubType::TableLeaf => {
-                        Ok(Self {
-                            size: 0,
-                            column_types: vec![],
-                            body: vec![],
-                        })
-                    }
+            PageTypes::BTree(b_tee_type) => {
+                match b_tee_type {
+                    BTreePageSubType::TableLeaf => Record::from_table_leaf(buffer, encoding),
 
                     _ => {
                         Ok(Self {
                             size: 0,
-                            column_types: vec![],
                             body: vec![],
+                            column_types: vec![],
+
                         })
                     }
                 }
             }
+
             _ => {
                 bail!("Invalid Btree Type")
             }
@@ -47,45 +124,24 @@ pub struct PageCell {
 }
 
 impl PageCell {
-    pub fn new(buffer: &Vec<u8>, btree_type: PageTypes) -> Result<PageCell> {
+    pub fn new(buffer: &Vec<u8>, btree_type: PageTypes, encoding: &TextEncoding) -> Result<PageCell> {
         let (size, size_var_end) = u32::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
 
-        let mut next_index = size_var_end + 1;
+        let mut next_index = size_var_end;
 
         let (rowid, rowid_var_end) = u32::decode_var(&buffer[next_index..buffer.len()])
             .with_context(|| "Could not parse cell rowid varint")?;
 
         next_index += rowid_var_end;
 
-        let record_buffer = buffer[next_index..size as usize].to_vec();
+        let record_buffer = buffer[next_index..].to_vec();
 
-        println!("{size} -> {size_var_end} \n {rowid} -> {rowid_var_end} \n {next_index} -> {record_buffer:?}");
-
-        Ok(Self {
+        let cell = Self {
             row_id: rowid,
             cell_size: size,
-            record: Record::new(&record_buffer, btree_type)?,
-        })
-    }
+            record: Record::new(&record_buffer, btree_type, encoding)?,
+        };
 
-    fn parse_varint(buffer: &Vec<u8>) -> Vec<u8> {
-        let mut num_vec = vec![];
-
-        for i in 0..buffer.len() {
-            let rest = buffer[i] & 0b01111111;
-            let first_bit = buffer[i] & 0b10000000;
-
-            if first_bit == 0 {
-                num_vec.push(rest);
-
-                break;
-            } else {
-                num_vec.push(rest);
-            }
-        }
-
-        num_vec.reverse();
-
-        num_vec
+        Ok(cell)
     }
 }
