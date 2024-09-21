@@ -1,7 +1,7 @@
 use crate::header::DBHeader;
 use crate::page::Page;
-
 use crate::schema::{SchemaTable, SchemaTypesTypes};
+
 use anyhow::{bail, Context, Result};
 use std::fs::File;
 use std::io::Read;
@@ -23,7 +23,6 @@ impl Database {
         file.read_at(&mut size_buf, 16).with_context(|| "Could not read page size")?;
 
         let page_size = u16::from_le_bytes([size_buf[0], size_buf[1]]) * 256;
-
 
         let mut page_buffer = vec![0u8; page_size as usize];
 
