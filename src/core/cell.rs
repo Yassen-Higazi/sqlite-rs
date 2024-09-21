@@ -59,7 +59,7 @@ pub struct Record {
 }
 
 impl Record {
-    fn from_table_leaf(buffer: &Vec<u8>, encoding: &TextEncoding) -> Result<Self> {
+    fn from_table_leaf(buffer: &Vec<u8>, _encoding: &TextEncoding) -> Result<Self> {
         let (header_size, size_var_end) = u32::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
 
         let mut next_index = size_var_end;

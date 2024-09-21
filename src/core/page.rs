@@ -3,7 +3,6 @@ use crate::core::header::DBHeader;
 use crate::core::page::PageTypes::{IndexBTree, TableBTree};
 
 use anyhow::{Context, Result};
-use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BTreePageSubType {
