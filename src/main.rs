@@ -1,11 +1,7 @@
-mod header;
-mod schema;
-mod database;
-mod page;
-mod cell;
 mod utils;
+mod core;
 
-use crate::database::Database;
+use core::database::Database;
 
 use anyhow::{bail, Result};
 

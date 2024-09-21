@@ -1,6 +1,6 @@
-use crate::page::{BTreePageSubType, PageTypes};
+use crate::core::page::{BTreePageSubType, PageTypes};
 
-use crate::header::TextEncoding;
+use crate::core::header::TextEncoding;
 use crate::utils::parse_varint;
 use anyhow::{bail, Context, Result};
 use integer_encoding::VarInt;

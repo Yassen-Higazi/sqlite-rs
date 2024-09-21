@@ -1,6 +1,6 @@
-use crate::cell::PageCell;
-use crate::header::DBHeader;
-use crate::page::PageTypes::{IndexBTree, TableBTree};
+use crate::core::cell::PageCell;
+use crate::core::header::DBHeader;
+use crate::core::page::PageTypes::{IndexBTree, TableBTree};
 
 use anyhow::{Context, Result};
 use std::fmt::Display;

@@ -1,4 +1,4 @@
-use crate::cell::{ColumnTypes, Record};
+use crate::core::cell::{ColumnTypes, Record};
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq)]

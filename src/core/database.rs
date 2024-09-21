@@ -1,6 +1,6 @@
-use crate::header::DBHeader;
-use crate::page::Page;
-use crate::schema::{SchemaTable, SchemaTypesTypes};
+use crate::core::header::DBHeader;
+use crate::core::page::Page;
+use crate::core::schema::{SchemaTable, SchemaTypesTypes};
 
 use anyhow::{bail, Context, Result};
 use std::fs::File;
