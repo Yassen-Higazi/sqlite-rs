@@ -1,3 +1,5 @@
+use crate::parser::scanner::Scanner;
+
 use crate::core::header::DBHeader;
 use crate::core::page::Page;
 use crate::core::schema::{SchemaTable, SchemaTypesTypes};
@@ -8,10 +10,11 @@ use std::io::Read;
 use std::os::unix::prelude::FileExt;
 
 pub struct Database {
-    header: DBHeader,
-    root_page: Page,
-    db_file_name: String,
     file: File,
+    root_page: Page,
+    header: DBHeader,
+    scanner: Scanner,
+    db_file_name: String,
 }
 
 impl Database {
@@ -35,6 +38,7 @@ impl Database {
 
         let db = Self {
             file,
+            scanner: Scanner::new(),
             header: root_page.header.clone(),
             db_file_name: db_file_name.clone(),
             root_page,
@@ -82,6 +86,28 @@ impl Database {
     }
 
     pub fn execute_command(&self, command: &String) -> Result<()> {
+        let mut scanner = Scanner::from(command.clone());
+
+        scanner.scan(command)?;
+
+        println!("Tokens: {:?}", scanner.get_tokens());
+
+        // let mut parser = Parser::new(tokens);
+        // let statements = parser.parse()?;
+        // for statement in statements {
+        //     match statement {
+        //         Statement::CreateTable(table) => {
+        //             let schema_table = SchemaTable::from(&table);
+        //             println!("{}", schema_table);
+        //         }
+        //         Statement::Insert(insert) => {
+        //             let table_name = insert.table_name.clone();
+        //             let count = self.count_records(&table_name)?;
+        //             println!("{}: {}", table_name, count);
+        //         }
+        //         _ => bail!("Invalid statement: {:?}", statement),
+        //     }
+        // }
         match command.as_str() {
             ".dbinfo" => {
                 println!("{}", self.header, );

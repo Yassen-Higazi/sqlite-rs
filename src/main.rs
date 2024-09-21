@@ -1,5 +1,6 @@
 mod utils;
 mod core;
+mod parser;
 
 use core::database::Database;
 
