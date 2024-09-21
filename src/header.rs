@@ -15,9 +15,7 @@ impl From<u32> for TextEncoding {
             1 => TextEncoding::Utf8,
             2 => TextEncoding::Utf16le,
             3 => TextEncoding::Utf16be,
-            _ => {
-                panic!("Invalid Text Encoding")
-            }
+            _ => TextEncoding::Utf8,
         }
     }
 }

@@ -60,12 +60,12 @@ impl From<&Record> for SchemaTable {
             let col_type = &record.column_types[i];
 
             match col_type {
-                ColumnTypes::Be8bitsInt => {
+                ColumnTypes::Be8bitsInt(size) => {
                     let num = u8::from_be_bytes([record.body[start_index]]) as i32;
 
                     root_page = num;
 
-                    start_index += 1;
+                    start_index += *size as usize;
                 }
 
                 ColumnTypes::Text(col_size) => {

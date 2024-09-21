@@ -8,13 +8,13 @@ use integer_encoding::VarInt;
 #[derive(Clone, Debug)]
 pub enum ColumnTypes {
     Null,
-    Be8bitsInt,
-    Be24bitsInt,
-    Be16bitsInt,
-    Be32bitsInt,
-    Be48bitsInt,
-    Be64bitsInt,
-    Be64bitsFloat,
+    Be8bitsInt(u8),
+    Be24bitsInt(u8),
+    Be16bitsInt(u8),
+    Be32bitsInt(u8),
+    Be48bitsInt(u8),
+    Be64bitsInt(u8),
+    Be64bitsFloat(u8),
     Zero,
     One,
     Internal(u64),
@@ -26,13 +26,13 @@ impl ColumnTypes {
     fn new(value: u64) -> Result<Self> {
         let col_type = match value {
             0 => ColumnTypes::Null,
-            1 => ColumnTypes::Be8bitsInt,
-            2 => ColumnTypes::Be24bitsInt,
-            3 => ColumnTypes::Be16bitsInt,
-            4 => ColumnTypes::Be32bitsInt,
-            5 => ColumnTypes::Be48bitsInt,
-            6 => ColumnTypes::Be64bitsInt,
-            7 => ColumnTypes::Be64bitsFloat,
+            1 => ColumnTypes::Be8bitsInt(1),
+            2 => ColumnTypes::Be16bitsInt(2),
+            3 => ColumnTypes::Be24bitsInt(3),
+            4 => ColumnTypes::Be32bitsInt(4),
+            5 => ColumnTypes::Be48bitsInt(5),
+            6 => ColumnTypes::Be64bitsInt(8),
+            7 => ColumnTypes::Be64bitsFloat(8),
             8 => ColumnTypes::Zero,
             9 => ColumnTypes::One,
             10 | 11 => ColumnTypes::Internal(value),
@@ -93,9 +93,9 @@ impl Record {
 impl Record {
     pub fn new(buffer: &Vec<u8>, value: PageTypes, encoding: &TextEncoding) -> Result<Self> {
         match value {
-            PageTypes::BTree(b_tee_type) => {
+            PageTypes::TableBTree(b_tee_type) => {
                 match b_tee_type {
-                    BTreePageSubType::TableLeaf => Record::from_table_leaf(buffer, encoding),
+                    BTreePageSubType::Leaf => Record::from_table_leaf(buffer, encoding),
 
                     _ => {
                         Ok(Self {

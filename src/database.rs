@@ -11,6 +11,7 @@ pub struct Database {
     header: DBHeader,
     root_page: Page,
     db_file_name: String,
+    file: File,
 }
 
 impl Database {
@@ -29,11 +30,12 @@ impl Database {
         file.read_exact(&mut page_buffer)?;
 
 
-        let root_page = Page::new(&page_buffer, page_size)?;
+        let root_page = Page::new(&page_buffer, page_size, 1)?;
 
         // println!("Root Page: {root_page:?}");
 
         let db = Self {
+            file,
             header: root_page.header.clone(),
             db_file_name: db_file_name.clone(),
             root_page,
@@ -42,34 +44,80 @@ impl Database {
         Ok(db)
     }
 
-    pub fn get_table_names(&self) -> Vec<String> {
+    pub fn get_table_schemas(&self) -> Vec<SchemaTable> {
         let mut tables = Vec::with_capacity(self.root_page.cells.len());
 
         for cell in &self.root_page.cells {
             let schema = SchemaTable::from(&cell.record);
 
-            if schema.schema_type == SchemaTypesTypes::Table { tables.push(schema.tbl_name); }
+            if schema.schema_type == SchemaTypesTypes::Table { tables.push(schema); }
         }
 
-        tables.to_owned()
+        tables
+    }
+
+    pub fn get_table_schema(&self, table_name: &String) -> Option<SchemaTable> {
+        let mut table: Option<SchemaTable> = None;
+
+        for cell in &self.root_page.cells {
+            let schema = SchemaTable::from(&cell.record);
+
+            if schema.schema_type == SchemaTypesTypes::Table && &schema.tbl_name == table_name { table = Some(schema) }
+        }
+
+        table
+    }
+
+    pub fn count_records(&self, table_name: &String) -> Result<u16> {
+        let table = self.get_table_schema(table_name).with_context(|| format!("No such table: {table_name}"))?;
+
+        let mut page_buff = vec![0u8; self.header.page_size as usize];
+
+        let page_offset = ((table.root_page - 1) * self.header.page_size as i32) as u64;
+
+        self.file.read_exact_at(&mut page_buff, page_offset)?;
+
+        let table_root_page = Page::new(&page_buff, self.header.page_size, table.root_page as u64)?;
+
+        Ok(table_root_page.num_of_cells)
     }
 
     pub fn execute_command(&self, command: &String) -> Result<()> {
         match command.as_str() {
             ".dbinfo" => {
                 println!("{}", self.header, );
-                println!("number of tables:    {}", self.get_table_names().len());
+                println!("number of tables:    {}", self.get_table_schemas().len());
             }
 
             ".tables" => {
-                let tables = self.get_table_names();
+                let tables = self.get_table_schemas();
 
                 for t in tables {
-                    print!("{t} ");
+                    print!("{} ", t.tbl_name);
                 }
             }
 
-            _ => bail!("Missing or invalid command passed: {}", command),
+            ".count" => {
+                let tables = self.get_table_schemas();
+
+                for table in tables {
+                    let count = self.count_records(&table.tbl_name)?;
+
+                    println!("{}: {}", table.tbl_name, count);
+                }
+            }
+
+            sql_text => {
+                let split = sql_text.split_whitespace().collect::<Vec<&str>>();
+
+                if split.len() == 4 {
+                    let table_name = split.last().unwrap();
+
+                    println!("{}", self.count_records(&table_name.to_string())?)
+                } else {
+                    bail!("Missing or invalid command passed: {}", command)
+                }
+            }
         }
 
         Ok(())

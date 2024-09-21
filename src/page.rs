@@ -1,16 +1,14 @@
 use crate::cell::PageCell;
 use crate::header::DBHeader;
-use crate::page::PageTypes::BTree;
+use crate::page::PageTypes::{IndexBTree, TableBTree};
 
 use anyhow::{Context, Result};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BTreePageSubType {
-    IndexInterior,
-    IndexLeaf,
-    TableInterior,
-    TableLeaf,
+    Leaf,
+    Interior,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -19,17 +17,18 @@ pub enum PageTypes {
     FreeList,
     PointerMap,
     PayloadOverflow,
-    BTree(BTreePageSubType),
+    IndexBTree(BTreePageSubType),
+    TableBTree(BTreePageSubType),
 
 }
 
 impl From<&u8> for PageTypes {
     fn from(value: &u8) -> Self {
         let page_type = match value {
-            2 => BTree(BTreePageSubType::IndexInterior),
-            5 => BTree(BTreePageSubType::IndexLeaf),
-            10 => BTree(BTreePageSubType::TableInterior),
-            13 => BTree(BTreePageSubType::TableLeaf),
+            2 => IndexBTree(BTreePageSubType::Interior),
+            5 => IndexBTree(BTreePageSubType::Leaf),
+            10 => TableBTree(BTreePageSubType::Interior),
+            13 => TableBTree(BTreePageSubType::Leaf),
             _ => {
                 panic!("Invalid Page Type")
             }
@@ -54,28 +53,44 @@ pub struct Page {
 }
 
 impl Page {
-    pub fn new(buffer: &Vec<u8>, page_size: u16) -> Result<Self> {
+    pub fn new(buffer: &Vec<u8>, page_size: u16, page_number: u64) -> Result<Self> {
+        let mut start_index = 0;
+
         let header = DBHeader::new(&buffer)?;
 
-        let page_type = PageTypes::from(&buffer[100]);
+        if page_number == 1 {
+            start_index = 100;
+        }
 
-        let free_block_start = u16::from_be_bytes([buffer[101], buffer[102]]);
+        let page_type = PageTypes::from(&buffer[start_index]);
 
-        let num_of_cells = u16::from_be_bytes([buffer[103], buffer[104]]);
+        let free_block_start = u16::from_be_bytes([buffer[start_index + 1], buffer[start_index + 2]]);
 
-        let content_area_start = u16::from_be_bytes([buffer[105], buffer[106]]);
+        let num_of_cells = u16::from_be_bytes([buffer[start_index + 3], buffer[start_index + 4]]);
 
-        let num_of_fragmented_free_bytes = u8::from_be_bytes([buffer[107]]);
+        let content_area_start = u16::from_be_bytes([buffer[start_index + 5], buffer[start_index + 6]]);
 
-        let right_most_pointer_value = u32::from_be_bytes([buffer[108], buffer[109], buffer[110], buffer[111]]);
+        let num_of_fragmented_free_bytes = u8::from_be_bytes([buffer[start_index + 7]]);
+
+        let right_most_pointer_value = u32::from_be_bytes([buffer[start_index + 8], buffer[start_index + 9], buffer[start_index + 10], buffer[start_index + 11]]);
 
         let right_most_pointer = if right_most_pointer_value == 0 { None } else { Some(right_most_pointer_value) };
 
         let mut cells: Vec<PageCell> = Vec::with_capacity(num_of_cells as usize);
         let mut cell_pointers = Vec::with_capacity(num_of_cells as usize);
 
-        let cell_pointers_start_index = 108;
-        
+        let cell_pointers_start_index = match page_type {
+            IndexBTree(btree_type) | TableBTree(btree_type) => {
+                match btree_type {
+                    BTreePageSubType::Leaf => start_index + 8,
+                    BTreePageSubType::Interior => start_index + 12
+                }
+            }
+            _ => {
+                start_index + 8
+            }
+        } as u16;
+
         // each cell is 2 bytes
         let cell_pointers_end_index = cell_pointers_start_index + num_of_cells * 2;
 
