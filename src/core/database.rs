@@ -32,10 +32,7 @@ impl Database {
 
         file.read_exact(&mut page_buffer)?;
 
-
         let root_page = Page::new(&page_buffer, page_size, 1)?;
-
-        // println!("Root Page: {root_page:?}");
 
         let db = Self {
             file,
@@ -66,24 +63,33 @@ impl Database {
         for cell in &self.root_page.cells {
             let schema = SchemaTable::from(&cell.record);
 
-            if schema.schema_type == SchemaTypesTypes::Table && &schema.tbl_name == table_name { table = Some(schema) }
+            if schema.schema_type == SchemaTypesTypes::Table && &schema.tbl_name == table_name {
+                table = Some(schema);
+                break;
+            }
         }
 
         table
     }
 
-    pub fn count_records(&self, table_name: &String) -> Result<u16> {
-        let table = self.get_table_schema(table_name).with_context(|| format!("No such table: {table_name}"))?;
-
+    fn read_page(&self, page_number: i32) -> Result<Page> {
         let mut page_buff = vec![0u8; self.header.page_size as usize];
 
-        let page_offset = ((table.root_page - 1) * self.header.page_size as i32) as u64;
+        let page_offset = ((page_number as u16 - 1) * self.header.page_size) as u64;
 
         self.file.read_exact_at(&mut page_buff, page_offset)?;
 
-        let table_root_page = Page::new(&page_buff, self.header.page_size, table.root_page as u64)?;
+        let table_root_page = Page::new(&page_buff, self.header.page_size, page_number as u64)?;
 
-        Ok(table_root_page.num_of_cells)
+        Ok(table_root_page)
+    }
+
+    pub fn count_records(&self, table_name: &String) -> Result<u16> {
+        let table = self.get_table_schema(table_name).with_context(|| format!("No such table: {table_name}"))?;
+
+        let page = self.read_page(table.root_page).with_context(|| format!("Could not read Page number {}, for table: {}", table.root_page, table.tbl_name))?;
+
+        Ok(page.num_of_cells)
     }
 
     pub fn execute_command(&self, command: &String) -> Result<()> {
@@ -97,15 +103,26 @@ impl Database {
 
         match statement.statement_type {
             StatementType::SELECT => {
-                println!("Table: {:?}", statement.tables);
-                println!("Columns: {:?}", statement.columns);
-                println!("Where: {:?}", statement.where_conditions);
-                println!("Limit: {:?}", statement.limit);
-                let table_name = statement.tables.first().unwrap().lexeme.clone();
+                let table_name = &statement.tables.first().unwrap().lexeme;
 
-                let schema_table = self.get_table_schema(&table_name).with_context(|| format!("relation {table_name} does not exist"))?;
+                let schema = self.get_table_schema(table_name).with_context(|| format!("Could not Get Table Schema: {}", table_name))?;
 
-                println!("Schema: {schema_table:?}");
+                let mut scanner = Scanner::new();
+
+                scanner.scan(&schema.sql)?;
+
+                let create_statement = Statement::new(scanner.get_tokens())?;
+
+                let page = self.read_page(schema.root_page)?;
+
+                println!("Table Page: {page:?}");
+
+                println!("Table: {:?}", create_statement.tables);
+                println!("Columns: {:?}", create_statement.columns);
+                // println!("Where: {:?}", create_statement.where_conditions);
+                // println!("Limit: {:?}", create_statement.limit);
+                //
+                // println!("{}", self.count_records(&table_name.to_string())?)
             }
 
             _ => {

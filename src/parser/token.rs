@@ -1,5 +1,6 @@
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
+    CREATE,
     INSERT,
     SELECT,
     UPDATE,
@@ -24,8 +25,20 @@ pub enum TokenType {
     BETWEEN,
     AS,
     LIMIT,
+
     TABLE,
     SET,
+    PRIMARY,
+    KEY,
+    AUTOINCREMENT,
+    UNIQUE,
+    FOREIGN,
+    ALLOW,
+    NULL,
+    INTEGER,
+    TEXT,
+    BOOLEAN,
+    BLOB,
 
     STRING,
     NUMBER,
@@ -71,6 +84,7 @@ impl From<&str> for TokenType {
 impl From<String> for TokenType {
     fn from(value: String) -> Self {
         match value.to_uppercase().as_str() {
+            "CREATE" => TokenType::CREATE,
             "SELECT" => TokenType::SELECT,
             "UPDATE" => TokenType::UPDATE,
             "DELETE" => TokenType::DELETE,
@@ -94,6 +108,19 @@ impl From<String> for TokenType {
             "STRING" => TokenType::STRING,
             "NUMBER" => TokenType::NUMBER,
             "LIMIT" => TokenType::LIMIT,
+            "TABLE" => TokenType::TABLE,
+            "SET" => TokenType::SET,
+            "PRIMARY" => TokenType::PRIMARY,
+            "KEY" => TokenType::KEY,
+            "AUTOINCREMENT" => TokenType::AUTOINCREMENT,
+            "UNIQUE" => TokenType::UNIQUE,
+            "FOREIGN" => TokenType::FOREIGN,
+            "NULL" => TokenType::NULL,
+            "INTEGER" => TokenType::INTEGER,
+            "TEXT" => TokenType::TEXT,
+            "BOOLEAN" => TokenType::BOOLEAN,
+            "BLOB" => TokenType::BLOB,
+            "ALLOW" => TokenType::ALLOW,
             _ => TokenType::IDENTIFIER
         }
     }
