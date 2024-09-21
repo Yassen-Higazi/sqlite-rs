@@ -1,5 +1,6 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
+    INSERT,
     SELECT,
     UPDATE,
     DELETE,
@@ -10,6 +11,8 @@ pub enum TokenType {
     GROUP,
     BY,
     HAVING,
+    INTO,
+    VALUES,
     JOIN,
     NATURAL,
     INNER,
@@ -20,6 +23,10 @@ pub enum TokenType {
     OR,
     BETWEEN,
     AS,
+    LIMIT,
+    TABLE,
+    SET,
+
     STRING,
     NUMBER,
     IDENTIFIER,
@@ -47,12 +54,12 @@ pub enum TokenType {
     EOF,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
-    lexeme: String,
-    token_type: TokenType,
-    line: u64,
-    column: u64,
+    pub lexeme: String,
+    pub token_type: TokenType,
+    pub line: u64,
+    pub column: u64,
 }
 
 impl From<&str> for TokenType {
@@ -86,6 +93,7 @@ impl From<String> for TokenType {
             "AS" => TokenType::AS,
             "STRING" => TokenType::STRING,
             "NUMBER" => TokenType::NUMBER,
+            "LIMIT" => TokenType::LIMIT,
             _ => TokenType::IDENTIFIER
         }
     }

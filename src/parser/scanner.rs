@@ -38,14 +38,14 @@ impl Scanner {
     pub fn scan(&mut self, input: &String) -> Result<()> {
         self.source = input.clone();
 
-        while (!self.at_end()) {
+        while !self.at_end() {
             // We are at the beginning of the next lexeme.
             self.start_index = self.current_index;
 
             self.scan_tokens()?;
         }
 
-        self.add_token(TokenType::EOF);
+        self.tokens.push(Token::new(TokenType::EOF, "\0".to_string(), self.line as u64, self.column as u64));
 
         Ok(())
     }

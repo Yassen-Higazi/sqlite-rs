@@ -4,6 +4,7 @@ use crate::core::header::DBHeader;
 use crate::core::page::Page;
 use crate::core::schema::{SchemaTable, SchemaTypesTypes};
 
+use crate::parser::statement::{Statement, StatementType};
 use anyhow::{bail, Context, Result};
 use std::fs::File;
 use std::io::Read;
@@ -90,60 +91,62 @@ impl Database {
 
         scanner.scan(command)?;
 
-        println!("Tokens: {:?}", scanner.get_tokens());
+        let tokens = scanner.get_tokens();
 
-        // let mut parser = Parser::new(tokens);
-        // let statements = parser.parse()?;
-        // for statement in statements {
-        //     match statement {
-        //         Statement::CreateTable(table) => {
-        //             let schema_table = SchemaTable::from(&table);
-        //             println!("{}", schema_table);
-        //         }
-        //         Statement::Insert(insert) => {
-        //             let table_name = insert.table_name.clone();
-        //             let count = self.count_records(&table_name)?;
-        //             println!("{}: {}", table_name, count);
-        //         }
-        //         _ => bail!("Invalid statement: {:?}", statement),
-        //     }
-        // }
-        match command.as_str() {
-            ".dbinfo" => {
-                println!("{}", self.header, );
-                println!("number of tables:    {}", self.get_table_schemas().len());
+        let statement = Statement::new(tokens)?;
+
+        match statement.statement_type {
+            StatementType::SELECT => {
+                println!("Table: {:?}", statement.tables);
+                println!("Columns: {:?}", statement.columns);
+                println!("Where: {:?}", statement.where_conditions);
+                println!("Limit: {:?}", statement.limit);
+                let table_name = statement.tables.first().unwrap().lexeme.clone();
+
+                let schema_table = self.get_table_schema(&table_name).with_context(|| format!("relation {table_name} does not exist"))?;
+
+                println!("Schema: {schema_table:?}");
             }
 
-            ".tables" => {
-                let tables = self.get_table_schemas();
+            _ => {
+                match command.as_str() {
+                    ".dbinfo" => {
+                        println!("{}", self.header, );
+                        println!("number of tables:    {}", self.get_table_schemas().len());
+                    }
 
-                for t in tables {
-                    print!("{} ", t.tbl_name);
+                    ".tables" => {
+                        let tables = self.get_table_schemas();
+
+                        for t in tables {
+                            print!("{} ", t.tbl_name);
+                        }
+                    }
+
+                    ".count" => {
+                        let tables = self.get_table_schemas();
+
+                        for table in tables {
+                            let count = self.count_records(&table.tbl_name)?;
+
+                            println!("{}: {}", table.tbl_name, count);
+                        }
+                    }
+
+                    sql_text => {
+                        let split = sql_text.split_whitespace().collect::<Vec<&str>>();
+
+                        if split.len() == 4 {
+                            let table_name = split.last().unwrap();
+
+                            println!("{}", self.count_records(&table_name.to_string())?)
+                        } else {}
+                        bail!("Missing or invalid command passed: {}", command)
+                    }
                 }
             }
+        };
 
-            ".count" => {
-                let tables = self.get_table_schemas();
-
-                for table in tables {
-                    let count = self.count_records(&table.tbl_name)?;
-
-                    println!("{}: {}", table.tbl_name, count);
-                }
-            }
-
-            sql_text => {
-                let split = sql_text.split_whitespace().collect::<Vec<&str>>();
-
-                if split.len() == 4 {
-                    let table_name = split.last().unwrap();
-
-                    println!("{}", self.count_records(&table_name.to_string())?)
-                } else {
-                    bail!("Missing or invalid command passed: {}", command)
-                }
-            }
-        }
 
         Ok(())
     }
