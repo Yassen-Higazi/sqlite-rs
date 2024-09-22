@@ -129,7 +129,11 @@ impl Scanner {
             }
 
             "\"" => {
-                self.parse_string();
+                self.parse_string("\"");
+            }
+
+            "'" => {
+                self.parse_string("'");
             }
 
             " " |
@@ -210,9 +214,10 @@ impl Scanner {
 
         character
     }
-    
-    fn parse_string(&mut self) {
-        while self.peek() != "\"" && !self.at_end() {
+
+    fn parse_string(&mut self, quote_type: &str) {
+        self.advance();
+        while (self.peek() != quote_type) && !self.at_end() {
             if self.peek() == "\n" { self.increment_line() };
 
             self.advance();
@@ -225,7 +230,7 @@ impl Scanner {
         // The closing ".
         self.advance();
 
-        self.add_token(TokenType::STRING);
+        self.add_token(TokenType::TEXT);
     }
 
     fn parse_number(&mut self) {

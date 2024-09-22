@@ -66,6 +66,26 @@ impl ColumnTypes {
             _ => 0
         }
     }
+
+    pub fn print(&self, data: &[u8]) -> Result<()> {
+        match self {
+            ColumnTypes::Internal(_) => {}
+            ColumnTypes::One => { print!("1") }
+            ColumnTypes::Zero => { print!("0") }
+            ColumnTypes::Null => { print!("Null") }
+            ColumnTypes::Blob(_) => { print!("{data:?}") }
+            ColumnTypes::Text(_) => { print!("{}", std::str::from_utf8(data)?) }
+            ColumnTypes::Be8bitsInt(_) => { print!("{}", u8::from_be_bytes([data[0]])) }
+            ColumnTypes::Be16bitsInt(_) => { print!("{}", u16::from_be_bytes([data[0], data[1]])) }
+            ColumnTypes::Be24bitsInt(_) => { print!("{}", u32::from_be_bytes([data[0], data[1], data[2], 0])) }
+            ColumnTypes::Be32bitsInt(_) => { print!("{}", u32::from_be_bytes([data[0], data[1], data[2], data[3]])) }
+            ColumnTypes::Be48bitsInt(_) => { print!("{}", u64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], 0, 0, 0])) }
+            ColumnTypes::Be64bitsInt(_) => { print!("{}", u64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]])) }
+            ColumnTypes::Be64bitsFloat(_) => { print!("{}", f64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]])) }
+        };
+
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -1,3 +1,4 @@
+use crate::core::database::Row;
 use crate::parser::token::{Token, TokenType};
 use anyhow::{anyhow, bail, Result};
 
@@ -38,7 +39,7 @@ pub struct Statement {
 impl Statement {
     pub fn new(tokens: &Vec<Token>) -> Result<Self> {
         let allowed_token_types_in_create = vec![TokenType::INTEGER, TokenType::AUTOINCREMENT, TokenType::UNIQUE, TokenType::PRIMARY, TokenType::KEY, TokenType::NULL, TokenType::ALLOW, TokenType::TEXT, TokenType::BLOB, TokenType::COMMA];
-        let allowed_token_types_in_where = vec![TokenType::IDENTIFIER, TokenType::EQUAL, TokenType::BangEqual, TokenType::GREATER, TokenType::GreaterEqual, TokenType::LESS, TokenType::LessEqual, TokenType::BETWEEN, TokenType::AND, TokenType::OR, TokenType::NUMBER, TokenType::STRING];
+        let allowed_token_types_in_where = vec![TokenType::IDENTIFIER, TokenType::EQUAL, TokenType::BangEqual, TokenType::GREATER, TokenType::GreaterEqual, TokenType::LESS, TokenType::LessEqual, TokenType::BETWEEN, TokenType::AND, TokenType::OR, TokenType::NUMBER, TokenType::STRING, TokenType::TEXT];
 
         let mut index: usize = 0;
 
@@ -321,5 +322,64 @@ impl Statement {
         }
 
         Ok(statement)
+    }
+
+    pub fn evaluate_where(&self, row: &Row) -> Result<bool> {
+        let mut i = 0;
+
+        let len = self.where_conditions.len();
+
+        let mut result = Vec::<bool>::new();
+
+        let where_column = &self.where_conditions[i];
+
+        let res = match row.get(&where_column.lexeme) {
+            None => false,
+
+            Some((col_type, data)) => {
+                i += 1;
+
+                while i < len {
+                    let mut next_token = &self.where_conditions[i];
+
+                    let match_res: bool = match next_token.token_type {
+                        TokenType::BangEqual => {
+                            next_token = &self.where_conditions[i + 1];
+
+                            i += 1;
+
+                            next_token.get_lexeme_bytes() != data
+                        }
+
+                        TokenType::EQUAL => {
+                            next_token = &self.where_conditions[i + 1];
+
+                            i += 1;
+
+                            next_token.get_lexeme_bytes() == data
+                        }
+
+                        TokenType::LessEqual => todo!(),
+
+                        TokenType::LESS => todo!(),
+
+                        TokenType::GreaterEqual => todo!(),
+
+                        TokenType::GREATER => todo!(),
+
+                        _ => false
+                    };
+
+                    result.push(match_res);
+
+                    i += 2;
+                }
+
+
+                result.iter().any(|&x| x == false)
+            }
+        };
+
+        Ok(res)
     }
 }

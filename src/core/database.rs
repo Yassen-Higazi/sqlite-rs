@@ -13,6 +13,8 @@ use std::fs::File;
 use std::io::Read;
 use std::os::unix::prelude::FileExt;
 
+pub type Row = HashMap<String, (ColumnTypes, Vec<u8>)>;
+
 pub struct Database {
     file: File,
     root_page: Page,
@@ -95,7 +97,7 @@ impl Database {
         Ok(page.num_of_cells)
     }
 
-    pub fn get_data(&self, schema: &SchemaTable) -> Result<Vec<HashMap<String, (ColumnTypes, Vec<u8>)>>> {
+    pub fn get_data(&self, schema: &SchemaTable) -> Result<Vec<Row>> {
         let page = self.read_page(schema.root_page)?;
 
         let mut scanner = Scanner::new();
@@ -111,7 +113,7 @@ impl Database {
 
             let cell_data = &page.cells[i].record;
 
-            let mut meta = HashMap::<String, (ColumnTypes, Vec<u8>)>::new();
+            let mut meta = Row::new();
 
             for j in 0..create_statement.columns.len() {
                 let column_name = &create_statement.columns[j];
@@ -178,6 +180,8 @@ impl Database {
                     limit = rows.len();
                 }
 
+                let mut new_line = true;
+
                 for row_index in 0..limit {
                     let row = &rows[row_index];
 
@@ -188,20 +192,17 @@ impl Database {
                             None => continue,
 
                             Some((col_type, data)) => {
-                                match col_type {
-                                    ColumnTypes::Null => { print!("{row_index}") }
-                                    ColumnTypes::Internal(_) => {}
-                                    ColumnTypes::One => { print!("1") }
-                                    ColumnTypes::Zero => { print!("0") }
-                                    ColumnTypes::Blob(_) => { print!("{data:?}") }
-                                    ColumnTypes::Text(_) => { print!("{}", std::str::from_utf8(data)?) }
-                                    ColumnTypes::Be8bitsInt(_) => { print!("{}", u8::from_be_bytes([data[0]])) }
-                                    ColumnTypes::Be16bitsInt(_) => { print!("{}", u16::from_be_bytes([data[0], data[1]])) }
-                                    ColumnTypes::Be24bitsInt(_) => { print!("{}", u32::from_be_bytes([data[0], data[1], data[2], 0])) }
-                                    ColumnTypes::Be32bitsInt(_) => { print!("{}", u32::from_be_bytes([data[0], data[1], data[2], data[3]])) }
-                                    ColumnTypes::Be48bitsInt(_) => { print!("{}", u64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], 0, 0, 0])) }
-                                    ColumnTypes::Be64bitsInt(_) => { print!("{}", u64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]])) }
-                                    ColumnTypes::Be64bitsFloat(_) => { print!("{}", f64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]])) }
+                                if statement.where_conditions.len() > 0 {
+                                    if !statement.evaluate_where(&row)? {
+                                        col_type.print(data).with_context(|| format!("Could not print column Type: {col_type:?}"))?;
+                                        new_line = true;
+                                    } else {
+                                        new_line = false;
+                                        break;
+                                    }
+                                } else {
+                                    col_type.print(data).with_context(|| format!("Could not print column Type: {col_type:?}"))?;
+                                    new_line = true;
                                 }
                             }
                         }
@@ -209,7 +210,7 @@ impl Database {
                         if col_index != statement.columns.len() - 1 { print!("|") }
                     }
 
-                    print!("\n")
+                    if new_line { print!("\n"); }
                 }
             }
 

@@ -136,4 +136,12 @@ impl Token {
             token_type,
         }
     }
+
+    pub fn get_lexeme_bytes(&self) -> &[u8] {
+        match self.token_type {
+            TokenType::TEXT => self.lexeme.as_str()[1..self.lexeme.len() - 1].as_bytes(),
+
+            _ => self.lexeme.as_bytes(),
+        }
+    }
 }
