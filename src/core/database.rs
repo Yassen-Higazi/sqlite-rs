@@ -206,7 +206,7 @@ impl Database {
                             }
                         }
 
-                        if col_index != statement.columns.len() - 1 { print!(" | ") }
+                        if col_index != statement.columns.len() - 1 { print!("|") }
                     }
 
                     print!("\n")
