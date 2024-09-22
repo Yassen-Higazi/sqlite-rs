@@ -127,35 +127,35 @@ impl Statement {
 
                     let next_token = &tokens[next_index];
 
-                    if next_token.token_type != TokenType::IDENTIFIER || next_token.token_type == TokenType::STAR {
+                    if next_token.token_type == TokenType::IDENTIFIER || next_token.token_type == TokenType::STAR || next_token.token_type == TokenType::COUNT {
+                        statement.columns.push(next_token.clone());
+
+                        next_index += 1;
+
+                        let new_token = &tokens[next_index];
+
+                        if next_token.token_type == TokenType::STAR && new_token.token_type == TokenType::IDENTIFIER {
+                            bail!("Syntax Error at line {}:{}", new_token.line, new_token.column)
+                        }
+
+                        loop {
+                            let next_token = &tokens[next_index];
+
+                            if next_token.token_type == TokenType::IDENTIFIER {
+                                statement.columns.push(next_token.clone());
+
+                                next_index += 1;
+                            } else if next_token.token_type == TokenType::COMMA {
+                                next_index += 1;
+                            } else {
+                                break;
+                            }
+                        }
+
+                        index = next_index;
+                    } else {
                         bail!("Select statement must be followed by an Identifier or *, line: {}:{}", next_token.line, next_token.column);
                     }
-
-                    statement.columns.push(next_token.clone());
-
-                    next_index += 1;
-
-                    let new_token = &tokens[next_index];
-
-                    if next_token.token_type == TokenType::STAR && new_token.token_type == TokenType::IDENTIFIER {
-                        bail!("Syntax Error at line {}:{}", new_token.line, new_token.column)
-                    }
-
-                    loop {
-                        let next_token = &tokens[next_index];
-
-                        if next_token.token_type == TokenType::IDENTIFIER {
-                            statement.columns.push(next_token.clone());
-
-                            next_index += 1;
-                        } else if next_token.token_type == TokenType::COMMA {
-                            next_index += 1;
-                        } else {
-                            break;
-                        }
-                    }
-
-                    index = next_index;
                 }
 
                 TokenType::UPDATE => {
@@ -312,7 +312,7 @@ impl Statement {
                     index += 1;
                 }
 
-                TokenType::BLOB => {
+                TokenType::BLOB | TokenType::SEMICOLON => {
                     index += 1;
                 }
 

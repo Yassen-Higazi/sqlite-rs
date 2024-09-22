@@ -49,6 +49,23 @@ impl ColumnTypes {
 
         Ok(col_type)
     }
+
+    pub fn get_len(&self) -> u64 {
+        match self {
+            ColumnTypes::Null => 0,
+            ColumnTypes::Be8bitsInt(len) => *len as u64,
+            ColumnTypes::Be16bitsInt(len) => *len as u64,
+            ColumnTypes::Be24bitsInt(len) => *len as u64,
+            ColumnTypes::Be32bitsInt(len) => *len as u64,
+            ColumnTypes::Be48bitsInt(len) => *len as u64,
+            ColumnTypes::Be64bitsInt(len) => *len as u64,
+            ColumnTypes::Be64bitsFloat(len) => *len as u64,
+            ColumnTypes::Internal(len) => *len,
+            ColumnTypes::Blob(len) => *len,
+            ColumnTypes::Text(len) => *len,
+            _ => 0
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

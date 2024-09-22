@@ -121,6 +121,7 @@ impl From<String> for TokenType {
             "BOOLEAN" => TokenType::BOOLEAN,
             "BLOB" => TokenType::BLOB,
             "ALLOW" => TokenType::ALLOW,
+            "COUNT" => TokenType::COUNT,
             _ => TokenType::IDENTIFIER
         }
     }

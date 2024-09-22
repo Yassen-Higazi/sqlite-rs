@@ -210,8 +210,7 @@ impl Scanner {
 
         character
     }
-
-
+    
     fn parse_string(&mut self) {
         while self.peek() != "\"" && !self.at_end() {
             if self.peek() == "\n" { self.increment_line() };
@@ -228,7 +227,6 @@ impl Scanner {
 
         self.add_token(TokenType::STRING);
     }
-
 
     fn parse_number(&mut self) {
         while Scanner::is_digit(self.peek()) { self.advance(); };
@@ -248,7 +246,6 @@ impl Scanner {
     pub fn is_digit(st: &str) -> bool {
         st.chars().all(|c| c >= '0' && c <= '9')
     }
-
 
     fn parse_identifier(&mut self) {
         while Scanner::is_alpha_numeric(self.peek()) { self.advance(); };

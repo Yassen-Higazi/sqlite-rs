@@ -1,10 +1,13 @@
-use crate::parser::scanner::Scanner;
-
 use crate::core::header::DBHeader;
 use crate::core::page::Page;
 use crate::core::schema::{SchemaTable, SchemaTypesTypes};
+use crate::parser::scanner::Scanner;
+use std::collections::HashMap;
+use std::fmt::Display;
 
+use crate::core::cell::ColumnTypes;
 use crate::parser::statement::{Statement, StatementType};
+use crate::parser::token::TokenType;
 use anyhow::{bail, Context, Result};
 use std::fs::File;
 use std::io::Read;
@@ -92,6 +95,44 @@ impl Database {
         Ok(page.num_of_cells)
     }
 
+    pub fn get_data(&self, schema: &SchemaTable) -> Result<Vec<HashMap<String, (ColumnTypes, Vec<u8>)>>> {
+        let page = self.read_page(schema.root_page)?;
+
+        let mut scanner = Scanner::new();
+
+        scanner.scan(&schema.sql)?;
+
+        let create_statement = Statement::new(scanner.get_tokens())?;
+
+        let mut column_vec = Vec::with_capacity(page.cells.len());
+
+        for i in 0..page.cells.len() {
+            let mut index = 0;
+
+            let cell_data = &page.cells[i].record;
+
+            let mut meta = HashMap::<String, (ColumnTypes, Vec<u8>)>::new();
+
+            for j in 0..create_statement.columns.len() {
+                let column_name = &create_statement.columns[j];
+
+                let cell_type = &cell_data.column_types[j];
+
+                let len = cell_type.get_len() as usize;
+
+                let data = &cell_data.body[index..index + len];
+
+                meta.insert(column_name.lexeme.to_string(), (cell_type.clone(), data.to_vec()));
+
+                index += len;
+            }
+
+            column_vec.push(meta);
+        }
+
+        Ok(column_vec)
+    }
+
     pub fn execute_command(&self, command: &String) -> Result<()> {
         let mut scanner = Scanner::from(command.clone());
 
@@ -105,24 +146,71 @@ impl Database {
             StatementType::SELECT => {
                 let table_name = &statement.tables.first().unwrap().lexeme;
 
+                let is_count = statement.columns.iter().any(|token| token.token_type == TokenType::COUNT);
+
+                if is_count {
+                    println!("{}", self.count_records(&table_name)?);
+
+                    return Ok(());
+                }
+
                 let schema = self.get_table_schema(table_name).with_context(|| format!("Could not Get Table Schema: {}", table_name))?;
 
-                let mut scanner = Scanner::new();
+                let rows = self.get_data(&schema)?;
 
-                scanner.scan(&schema.sql)?;
+                for col_index in 0..statement.columns.len() {
+                    let col = &statement.columns[col_index];
 
-                let create_statement = Statement::new(scanner.get_tokens())?;
+                    if rows[0].get(&col.lexeme).is_none() {
+                        bail!("No such Column: {}", col.lexeme)
+                    }
 
-                let page = self.read_page(schema.root_page)?;
+                    // print!("{} ", col.lexeme);
+                    //
+                    // if col_index == statement.columns.len() - 1 { print!("\n"); }
+                }
 
-                println!("Table Page: {page:?}");
+                let mut limit: usize = 0;
 
-                println!("Table: {:?}", create_statement.tables);
-                println!("Columns: {:?}", create_statement.columns);
-                // println!("Where: {:?}", create_statement.where_conditions);
-                // println!("Limit: {:?}", create_statement.limit);
-                //
-                // println!("{}", self.count_records(&table_name.to_string())?)
+                if let Some(lim) = statement.limit {
+                    limit = std::cmp::min(lim as usize, rows.len());
+                } else {
+                    limit = rows.len();
+                }
+
+                for row_index in 0..limit {
+                    let row = &rows[row_index];
+
+                    for col_index in 0..statement.columns.len() {
+                        let col = &statement.columns[col_index];
+
+                        match row.get(&col.lexeme) {
+                            None => continue,
+
+                            Some((col_type, data)) => {
+                                match col_type {
+                                    ColumnTypes::Null => { print!("{row_index}") }
+                                    ColumnTypes::Internal(_) => {}
+                                    ColumnTypes::One => { print!("1") }
+                                    ColumnTypes::Zero => { print!("0") }
+                                    ColumnTypes::Blob(_) => { print!("{data:?}") }
+                                    ColumnTypes::Text(_) => { print!("{}", std::str::from_utf8(data)?) }
+                                    ColumnTypes::Be8bitsInt(_) => { print!("{}", u8::from_be_bytes([data[0]])) }
+                                    ColumnTypes::Be16bitsInt(_) => { print!("{}", u16::from_be_bytes([data[0], data[1]])) }
+                                    ColumnTypes::Be24bitsInt(_) => { print!("{}", u32::from_be_bytes([data[0], data[1], data[2], 0])) }
+                                    ColumnTypes::Be32bitsInt(_) => { print!("{}", u32::from_be_bytes([data[0], data[1], data[2], data[3]])) }
+                                    ColumnTypes::Be48bitsInt(_) => { print!("{}", u64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], 0, 0, 0])) }
+                                    ColumnTypes::Be64bitsInt(_) => { print!("{}", u64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]])) }
+                                    ColumnTypes::Be64bitsFloat(_) => { print!("{}", f64::from_be_bytes([data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]])) }
+                                }
+                            }
+                        }
+
+                        if col_index != statement.columns.len() - 1 { print!(" | ") }
+                    }
+
+                    print!("\n")
+                }
             }
 
             _ => {
