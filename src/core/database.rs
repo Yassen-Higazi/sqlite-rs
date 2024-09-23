@@ -117,7 +117,8 @@ impl Database {
         for i in 0..page.cells.len() {
             let mut index = 0;
 
-            let cell_data = &page.cells[i].record;
+            let cell = &page.cells[i];
+            let cell_data = &cell.record;
 
             let mut meta = Row::new();
 
@@ -130,10 +131,18 @@ impl Database {
 
                 let data = &cell_data.body[index..index + len];
 
-                meta.insert(
-                    column_name.lexeme.to_string(),
-                    (cell_type.clone(), data.to_vec()),
-                );
+                if column_name.lexeme == "id" {
+                    let bytes = cell.row_id.to_be_bytes().to_vec();
+                    let data = (ColumnTypes::new(bytes.len() as u64)?, bytes);
+
+                    meta.insert(column_name.lexeme.to_string(), data);
+                } else {
+                    meta.insert(
+                        column_name.lexeme.to_string(),
+                        (cell_type.clone(), data.to_vec()),
+                    );
+                }
+
 
                 index += len;
             }

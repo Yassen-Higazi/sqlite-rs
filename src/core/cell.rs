@@ -23,7 +23,7 @@ pub enum ColumnTypes {
 }
 
 impl ColumnTypes {
-    fn new(value: u64) -> Result<Self> {
+    pub fn new(value: u64) -> Result<Self> {
         let col_type = match value {
             0 => ColumnTypes::Null,
             1 => ColumnTypes::Be8bitsInt(1),
@@ -169,6 +169,7 @@ impl Record {
 
 impl Record {
     pub fn new(buffer: &Vec<u8>, value: PageTypes, encoding: &TextEncoding) -> Result<Self> {
+        // println!("B-tree Type: {value:?}");
         match value {
             PageTypes::TableBTree(b_tee_type) => match b_tee_type {
                 BTreePageSubType::Leaf => Record::from_table_leaf(buffer, encoding),
