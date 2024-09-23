@@ -45,7 +45,12 @@ impl Scanner {
             self.scan_tokens()?;
         }
 
-        self.tokens.push(Token::new(TokenType::EOF, "\0".to_string(), self.line as u64, self.column as u64));
+        self.tokens.push(Token::new(
+            TokenType::EOF,
+            "\0".to_string(),
+            self.line as u64,
+            self.column as u64,
+        ));
 
         Ok(())
     }
@@ -96,7 +101,11 @@ impl Scanner {
 
             // for these s (!, =, <, >) it can be a single char, or it can be followed by = (!=, ==, <=, >=)
             "!" => {
-                let token_type = if self.match_char("=") { TokenType::BangEqual } else { TokenType::BANG };
+                let token_type = if self.match_char("=") {
+                    TokenType::BangEqual
+                } else {
+                    TokenType::BANG
+                };
 
                 self.add_token(token_type);
             }
@@ -106,13 +115,21 @@ impl Scanner {
             }
 
             "<" => {
-                let token_type = if self.match_char("=") { TokenType::LessEqual } else { TokenType::LESS };
+                let token_type = if self.match_char("=") {
+                    TokenType::LessEqual
+                } else {
+                    TokenType::LESS
+                };
 
                 self.add_token(token_type);
             }
 
             ">" => {
-                let token_type = if self.match_char("=") { TokenType::GreaterEqual } else { TokenType::GREATER };
+                let token_type = if self.match_char("=") {
+                    TokenType::GreaterEqual
+                } else {
+                    TokenType::GREATER
+                };
 
                 self.add_token(token_type);
             }
@@ -136,9 +153,7 @@ impl Scanner {
                 self.parse_string("'");
             }
 
-            " " |
-            "\r" |
-            "\t" => {
+            " " | "\r" | "\t" => {
 
                 // Ignore whitespace.
             }
@@ -153,7 +168,11 @@ impl Scanner {
                 } else if Scanner::is_alpha(c) {
                     self.parse_identifier();
                 } else {
-                    bail!("SyntaxError: Unexpected character. at {}:{}", self.line, self.column)
+                    bail!(
+                        "SyntaxError: Unexpected character. at {}:{}",
+                        self.line,
+                        self.column
+                    )
                 }
             }
         };
@@ -172,7 +191,12 @@ impl Scanner {
     fn add_token(&mut self, token_type: TokenType) {
         let text = &self.source[self.start_index..self.current_index];
 
-        self.tokens.push(Token::new(token_type, text.to_string(), self.line as u64, self.column as u64));
+        self.tokens.push(Token::new(
+            token_type,
+            text.to_string(),
+            self.line as u64,
+            self.column as u64,
+        ));
     }
 
     fn increment_line(&mut self) {
@@ -182,9 +206,13 @@ impl Scanner {
     }
 
     fn match_char(&mut self, expected: &str) -> bool {
-        if self.at_end() { return false; };
+        if self.at_end() {
+            return false;
+        };
 
-        if &self.source[self.current_index..self.current_index + 1] != expected { return false; };
+        if &self.source[self.current_index..self.current_index + 1] != expected {
+            return false;
+        };
 
         self.column += 1;
 
@@ -194,13 +222,17 @@ impl Scanner {
     }
 
     fn peek(&self) -> &str {
-        if self.at_end() { return "\0"; };
+        if self.at_end() {
+            return "\0";
+        };
 
         &self.source[self.current_index..self.current_index + 1]
     }
 
     fn peek_next(&self) -> &str {
-        if self.current_index + 1 >= self.source.len() { return "\0"; };
+        if self.current_index + 1 >= self.source.len() {
+            return "\0";
+        };
 
         &self.source[self.current_index + 1..self.current_index + 2]
     }
@@ -218,7 +250,9 @@ impl Scanner {
     fn parse_string(&mut self, quote_type: &str) {
         self.advance();
         while (self.peek() != quote_type) && !self.at_end() {
-            if self.peek() == "\n" { self.increment_line() };
+            if self.peek() == "\n" {
+                self.increment_line()
+            };
 
             self.advance();
         }
@@ -234,7 +268,9 @@ impl Scanner {
     }
 
     fn parse_number(&mut self) {
-        while Scanner::is_digit(self.peek()) { self.advance(); };
+        while Scanner::is_digit(self.peek()) {
+            self.advance();
+        }
 
         // Look for a fractional part.
         if self.peek() == "." && Scanner::is_digit(self.peek_next()) {
@@ -242,7 +278,9 @@ impl Scanner {
             self.advance();
 
             //noinspection WhileCanBeDoWhile
-            while Scanner::is_digit(self.peek()) { self.advance(); };
+            while Scanner::is_digit(self.peek()) {
+                self.advance();
+            }
         }
 
         self.add_token(TokenType::NUMBER);
@@ -253,7 +291,9 @@ impl Scanner {
     }
 
     fn parse_identifier(&mut self) {
-        while Scanner::is_alpha_numeric(self.peek()) { self.advance(); };
+        while Scanner::is_alpha_numeric(self.peek()) {
+            self.advance();
+        }
 
         let text = &self.source[self.start_index..self.current_index];
 
@@ -263,9 +303,8 @@ impl Scanner {
     }
 
     pub fn is_alpha(st: &str) -> bool {
-        st.chars().all(|c| (c >= 'a' && c <= 'z') ||
-            (c >= 'A' && c <= 'Z') ||
-            c == '_')
+        st.chars()
+            .all(|c| (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_')
     }
 
     pub fn is_alpha_numeric(c: &str) -> bool {

@@ -29,7 +29,8 @@ impl Database {
 
         let mut size_buf = vec![0u8; 2];
 
-        file.read_at(&mut size_buf, 16).with_context(|| "Could not read page size")?;
+        file.read_at(&mut size_buf, 16)
+            .with_context(|| "Could not read page size")?;
 
         let page_size = u16::from_le_bytes([size_buf[0], size_buf[1]]) * 256;
 
@@ -56,7 +57,9 @@ impl Database {
         for cell in &self.root_page.cells {
             let schema = SchemaTable::from(&cell.record);
 
-            if schema.schema_type == SchemaTypesTypes::Table { tables.push(schema); }
+            if schema.schema_type == SchemaTypesTypes::Table {
+                tables.push(schema);
+            }
         }
 
         tables
@@ -90,9 +93,16 @@ impl Database {
     }
 
     pub fn count_records(&self, table_name: &String) -> Result<u16> {
-        let table = self.get_table_schema(table_name).with_context(|| format!("No such table: {table_name}"))?;
+        let table = self
+            .get_table_schema(table_name)
+            .with_context(|| format!("No such table: {table_name}"))?;
 
-        let page = self.read_page(table.root_page).with_context(|| format!("Could not read Page number {}, for table: {}", table.root_page, table.tbl_name))?;
+        let page = self.read_page(table.root_page).with_context(|| {
+            format!(
+                "Could not read Page number {}, for table: {}",
+                table.root_page, table.tbl_name
+            )
+        })?;
 
         Ok(page.num_of_cells)
     }
@@ -124,7 +134,10 @@ impl Database {
 
                 let data = &cell_data.body[index..index + len];
 
-                meta.insert(column_name.lexeme.to_string(), (cell_type.clone(), data.to_vec()));
+                meta.insert(
+                    column_name.lexeme.to_string(),
+                    (cell_type.clone(), data.to_vec()),
+                );
 
                 index += len;
             }
@@ -148,7 +161,10 @@ impl Database {
             StatementType::SELECT => {
                 let table_name = &statement.tables.first().unwrap().lexeme;
 
-                let is_count = statement.columns.iter().any(|token| token.token_type == TokenType::COUNT);
+                let is_count = statement
+                    .columns
+                    .iter()
+                    .any(|token| token.token_type == TokenType::COUNT);
 
                 if is_count {
                     println!("{}", self.count_records(&table_name)?);
@@ -156,7 +172,9 @@ impl Database {
                     return Ok(());
                 }
 
-                let schema = self.get_table_schema(table_name).with_context(|| format!("Could not Get Table Schema: {}", table_name))?;
+                let schema = self
+                    .get_table_schema(table_name)
+                    .with_context(|| format!("Could not Get Table Schema: {}", table_name))?;
 
                 let rows = self.get_data(&schema)?;
 
@@ -194,65 +212,71 @@ impl Database {
                             Some((col_type, data)) => {
                                 if statement.where_conditions.len() > 0 {
                                     if !statement.evaluate_where(&row)? {
-                                        col_type.print(data).with_context(|| format!("Could not print column Type: {col_type:?}"))?;
+                                        col_type.print(data).with_context(|| {
+                                            format!("Could not print column Type: {col_type:?}")
+                                        })?;
                                         new_line = true;
                                     } else {
                                         new_line = false;
                                         break;
                                     }
                                 } else {
-                                    col_type.print(data).with_context(|| format!("Could not print column Type: {col_type:?}"))?;
+                                    col_type.print(data).with_context(|| {
+                                        format!("Could not print column Type: {col_type:?}")
+                                    })?;
                                     new_line = true;
                                 }
                             }
                         }
 
-                        if col_index != statement.columns.len() - 1 { print!("|") }
-                    }
-
-                    if new_line { print!("\n"); }
-                }
-            }
-
-            _ => {
-                match command.as_str() {
-                    ".dbinfo" => {
-                        println!("{}", self.header, );
-                        println!("number of tables:    {}", self.get_table_schemas().len());
-                    }
-
-                    ".tables" => {
-                        let tables = self.get_table_schemas();
-
-                        for t in tables {
-                            print!("{} ", t.tbl_name);
+                        if col_index != statement.columns.len() - 1 {
+                            print!("|")
                         }
                     }
 
-                    ".count" => {
-                        let tables = self.get_table_schemas();
-
-                        for table in tables {
-                            let count = self.count_records(&table.tbl_name)?;
-
-                            println!("{}: {}", table.tbl_name, count);
-                        }
-                    }
-
-                    sql_text => {
-                        let split = sql_text.split_whitespace().collect::<Vec<&str>>();
-
-                        if split.len() == 4 {
-                            let table_name = split.last().unwrap();
-
-                            println!("{}", self.count_records(&table_name.to_string())?)
-                        } else {}
-                        bail!("Missing or invalid command passed: {}", command)
+                    if new_line {
+                        print!("\n");
                     }
                 }
             }
+
+            _ => match command.as_str() {
+                ".dbinfo" => {
+                    println!("{}", self.header,);
+                    println!("number of tables:    {}", self.get_table_schemas().len());
+                }
+
+                ".tables" => {
+                    let tables = self.get_table_schemas();
+
+                    for t in tables {
+                        print!("{} ", t.tbl_name);
+                    }
+                }
+
+                ".count" => {
+                    let tables = self.get_table_schemas();
+
+                    for table in tables {
+                        let count = self.count_records(&table.tbl_name)?;
+
+                        println!("{}: {}", table.tbl_name, count);
+                    }
+                }
+
+                sql_text => {
+                    let split = sql_text.split_whitespace().collect::<Vec<&str>>();
+
+                    if split.len() == 4 {
+                        let table_name = split.last().unwrap();
+
+                        println!("{}", self.count_records(&table_name.to_string())?)
+                    } else {
+                    }
+                    bail!("Missing or invalid command passed: {}", command)
+                }
+            },
         };
-
 
         Ok(())
     }

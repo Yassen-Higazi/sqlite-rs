@@ -49,7 +49,8 @@ impl From<&Record> for SchemaTable {
         if let ColumnTypes::Text(col_size) = record.column_types[0] {
             let end_index = start_index + col_size as usize;
 
-            let text = std::str::from_utf8(&record.body[start_index..end_index]).expect("Could not parse Schema Table");
+            let text = std::str::from_utf8(&record.body[start_index..end_index])
+                .expect("Could not parse Schema Table");
 
             schema_type = SchemaTypesTypes::from(text);
 
@@ -71,7 +72,8 @@ impl From<&Record> for SchemaTable {
                 ColumnTypes::Text(col_size) => {
                     let end_index = start_index + *col_size as usize;
 
-                    let text = String::from_utf8(record.body[start_index..end_index].to_vec()).expect("Could not parse Schema Table");
+                    let text = String::from_utf8(record.body[start_index..end_index].to_vec())
+                        .expect("Could not parse Schema Table");
 
                     columns.push(text);
 
@@ -80,7 +82,6 @@ impl From<&Record> for SchemaTable {
                 _ => {}
             }
         }
-
 
         Self {
             root_page,
@@ -103,6 +104,10 @@ pub struct SchemaTable {
 
 impl Display for SchemaTable {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}|{}|{}|{}|{}", self.schema_type, self.name, self.tbl_name, self.root_page, self.sql)
+        write!(
+            f,
+            "{}|{}|{}|{}|{}",
+            self.schema_type, self.name, self.tbl_name, self.root_page, self.sql
+        )
     }
 }

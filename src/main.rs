@@ -1,6 +1,6 @@
-mod utils;
 mod core;
 mod parser;
+mod utils;
 
 use core::database::Database;
 
@@ -14,7 +14,7 @@ fn main() -> Result<()> {
         0 | 1 => bail!("Missing <database path> and <command>"),
         2 => bail!("Missing <command>"),
         3 => {}
-        l => bail!("Expected 2 arguments but got {}", l)
+        l => bail!("Expected 2 arguments but got {}", l),
     }
 
     // Parse command and act accordingly

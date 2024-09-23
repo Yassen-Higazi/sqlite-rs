@@ -1,7 +1,6 @@
 use anyhow::Result;
 use std::fmt::{Display, Formatter};
 
-
 #[derive(Debug, Clone)]
 pub enum TextEncoding {
     Utf8,
@@ -23,13 +22,18 @@ impl From<u32> for TextEncoding {
 impl Display for TextEncoding {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            TextEncoding::Utf8 => { write!(f, "1 (utf-8)") }
-            TextEncoding::Utf16le => { write!(f, "2 (utf-16le)") }
-            TextEncoding::Utf16be => { write!(f, "3 (utf-16be)") }
+            TextEncoding::Utf8 => {
+                write!(f, "1 (utf-8)")
+            }
+            TextEncoding::Utf16le => {
+                write!(f, "2 (utf-16le)")
+            }
+            TextEncoding::Utf16be => {
+                write!(f, "3 (utf-16be)")
+            }
         }
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct DBHeader {
@@ -69,33 +73,40 @@ impl DBHeader {
 
         let reserved_bytes_per_page = u16::from_be_bytes([buffer[20], buffer[21]]);
 
-        let file_change_counter = u32::from_be_bytes([buffer[24], buffer[25], buffer[26], buffer[27]]);
+        let file_change_counter =
+            u32::from_be_bytes([buffer[24], buffer[25], buffer[26], buffer[27]]);
 
         let db_size = u32::from_be_bytes([buffer[28], buffer[29], buffer[30], buffer[31]]);
 
         let first_free_page = u32::from_be_bytes([buffer[32], buffer[33], buffer[34], buffer[35]]);
 
-        let free_page_list_size = u32::from_be_bytes([buffer[36], buffer[37], buffer[38], buffer[39]]);
+        let free_page_list_size =
+            u32::from_be_bytes([buffer[36], buffer[37], buffer[38], buffer[39]]);
 
         let schema_cookie = u32::from_be_bytes([buffer[40], buffer[41], buffer[42], buffer[43]]);
 
-        let schema_format_number = u32::from_be_bytes([buffer[44], buffer[45], buffer[46], buffer[47]]);
+        let schema_format_number =
+            u32::from_be_bytes([buffer[44], buffer[45], buffer[46], buffer[47]]);
 
-        let suggested_cache_size = i32::from_be_bytes([buffer[48], buffer[49], buffer[50], buffer[51]]);
+        let suggested_cache_size =
+            i32::from_be_bytes([buffer[48], buffer[49], buffer[50], buffer[51]]);
 
         let auto_vacuum = u32::from_be_bytes([buffer[52], buffer[53], buffer[54], buffer[55]]);
 
         let text_encoding = u32::from_be_bytes([buffer[56], buffer[57], buffer[58], buffer[59]]);
 
-        let user_version_number = u32::from_be_bytes([buffer[60], buffer[61], buffer[62], buffer[62]]);
+        let user_version_number =
+            u32::from_be_bytes([buffer[60], buffer[61], buffer[62], buffer[62]]);
 
-        let incremental_vacuum = u32::from_be_bytes([buffer[64], buffer[65], buffer[66], buffer[67]]);
+        let incremental_vacuum =
+            u32::from_be_bytes([buffer[64], buffer[65], buffer[66], buffer[67]]);
 
         let application_id = u32::from_be_bytes([buffer[68], buffer[69], buffer[70], buffer[71]]);
 
         let change_counter = u32::from_be_bytes([buffer[92], buffer[93], buffer[93], buffer[94]]);
 
-        let sqlite_version_number = u32::from_be_bytes([buffer[96], buffer[97], buffer[98], buffer[99]]);
+        let sqlite_version_number =
+            u32::from_be_bytes([buffer[96], buffer[97], buffer[98], buffer[99]]);
 
         Ok(Self {
             db_size,
@@ -139,8 +150,9 @@ impl DBHeader {
 
 impl Display for DBHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f,
-               "database page size:  {}
+        write!(
+            f,
+            "database page size:  {}
 write format:        {}
 read format:         {}
 reserved bytes:      {}
@@ -156,22 +168,22 @@ text encoding:       {}
 user version:        {}
 application id:      {}
 software version:    {}",
-               self.page_size,
-               self.file_write_version,
-               self.file_read_version,
-               self.reserved_bytes_per_page,
-               self.file_change_counter,
-               self.first_free_page + self.free_page_list_size,
-               self.free_page_list_size,
-               self.schema_cookie,
-               self.schema_format_number,
-               self.suggested_cache_size,
-               self.auto_vacuum,
-               self.incremental_vacuum,
-               self.text_encoding,
-               self.user_version_number,
-               self.application_id,
-               self.sqlite_version_number,
+            self.page_size,
+            self.file_write_version,
+            self.file_read_version,
+            self.reserved_bytes_per_page,
+            self.file_change_counter,
+            self.first_free_page + self.free_page_list_size,
+            self.free_page_list_size,
+            self.schema_cookie,
+            self.schema_format_number,
+            self.suggested_cache_size,
+            self.auto_vacuum,
+            self.incremental_vacuum,
+            self.text_encoding,
+            self.user_version_number,
+            self.application_id,
+            self.sqlite_version_number,
         )
     }
 }

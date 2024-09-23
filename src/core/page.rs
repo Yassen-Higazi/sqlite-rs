@@ -18,7 +18,6 @@ pub enum PageTypes {
     PayloadOverflow,
     IndexBTree(BTreePageSubType),
     TableBTree(BTreePageSubType),
-
 }
 
 impl From<&u8> for PageTypes {
@@ -63,31 +62,38 @@ impl Page {
 
         let page_type = PageTypes::from(&buffer[start_index]);
 
-        let free_block_start = u16::from_be_bytes([buffer[start_index + 1], buffer[start_index + 2]]);
+        let free_block_start =
+            u16::from_be_bytes([buffer[start_index + 1], buffer[start_index + 2]]);
 
         let num_of_cells = u16::from_be_bytes([buffer[start_index + 3], buffer[start_index + 4]]);
 
-        let content_area_start = u16::from_be_bytes([buffer[start_index + 5], buffer[start_index + 6]]);
+        let content_area_start =
+            u16::from_be_bytes([buffer[start_index + 5], buffer[start_index + 6]]);
 
         let num_of_fragmented_free_bytes = u8::from_be_bytes([buffer[start_index + 7]]);
 
-        let right_most_pointer_value = u32::from_be_bytes([buffer[start_index + 8], buffer[start_index + 9], buffer[start_index + 10], buffer[start_index + 11]]);
+        let right_most_pointer_value = u32::from_be_bytes([
+            buffer[start_index + 8],
+            buffer[start_index + 9],
+            buffer[start_index + 10],
+            buffer[start_index + 11],
+        ]);
 
-        let right_most_pointer = if right_most_pointer_value == 0 { None } else { Some(right_most_pointer_value) };
+        let right_most_pointer = if right_most_pointer_value == 0 {
+            None
+        } else {
+            Some(right_most_pointer_value)
+        };
 
         let mut cells: Vec<PageCell> = Vec::with_capacity(num_of_cells as usize);
         let mut cell_pointers = Vec::with_capacity(num_of_cells as usize);
 
         let cell_pointers_start_index = match page_type {
-            IndexBTree(btree_type) | TableBTree(btree_type) => {
-                match btree_type {
-                    BTreePageSubType::Leaf => start_index + 8,
-                    BTreePageSubType::Interior => start_index + 12
-                }
-            }
-            _ => {
-                start_index + 8
-            }
+            IndexBTree(btree_type) | TableBTree(btree_type) => match btree_type {
+                BTreePageSubType::Leaf => start_index + 8,
+                BTreePageSubType::Interior => start_index + 12,
+            },
+            _ => start_index + 8,
         } as u16;
 
         // each cell is 2 bytes
@@ -126,9 +132,14 @@ impl Page {
 
     fn cell_content_area_offset(&self) -> u16 {
         // the offset to the cell content area will equal the page size minus the bytes of reserved space
-        let (value, is_overflowing) = self.page_size.overflowing_sub(self.header.reserved_bytes_per_page);
+        let (value, is_overflowing) = self
+            .page_size
+            .overflowing_sub(self.header.reserved_bytes_per_page);
 
-
-        if is_overflowing { self.page_size } else { value }
+        if is_overflowing {
+            self.page_size
+        } else {
+            value
+        }
     }
 }

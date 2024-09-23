@@ -34,17 +34,19 @@ pub fn parse_varint(bytes: &[u8]) -> Result<(u64, &[u8], usize)> {
 pub fn read_be_utf16(slice: &[u8], size: usize) -> Result<String> {
     assert!(2 * size <= slice.len());
 
-    let iter = (0..size)
-        .map(|i| u16::from_be_bytes([slice[2 * i], slice[2 * i + 1]]));
+    let iter = (0..size).map(|i| u16::from_be_bytes([slice[2 * i], slice[2 * i + 1]]));
 
-    std::char::decode_utf16(iter).collect::<Result<String, _>>().with_context(|| "Could not decode utf16 le")
+    std::char::decode_utf16(iter)
+        .collect::<Result<String, _>>()
+        .with_context(|| "Could not decode utf16 le")
 }
 
 pub fn read_le_utf16(slice: &[u8], size: usize) -> Result<String> {
     assert!(2 * size <= slice.len());
 
-    let iter = (0..size)
-        .map(|i| u16::from_le_bytes([slice[2 * i], slice[2 * i + 1]]));
+    let iter = (0..size).map(|i| u16::from_le_bytes([slice[2 * i], slice[2 * i + 1]]));
 
-    std::char::decode_utf16(iter).collect::<Result<String, _>>().with_context(|| "Could not decode utf16 be")
+    std::char::decode_utf16(iter)
+        .collect::<Result<String, _>>()
+        .with_context(|| "Could not decode utf16 be")
 }

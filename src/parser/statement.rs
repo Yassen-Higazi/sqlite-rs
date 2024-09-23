@@ -20,7 +20,7 @@ impl From<TokenType> for StatementType {
             TokenType::UPDATE => StatementType::UPDATE,
             TokenType::DELETE => StatementType::DELETE,
             TokenType::ALTER => StatementType::ALTER,
-            _ => panic!("{}", anyhow!("Invalid Statement Type"))
+            _ => panic!("{}", anyhow!("Invalid Statement Type")),
         }
     }
 }
@@ -38,8 +38,33 @@ pub struct Statement {
 
 impl Statement {
     pub fn new(tokens: &Vec<Token>) -> Result<Self> {
-        let allowed_token_types_in_create = vec![TokenType::INTEGER, TokenType::AUTOINCREMENT, TokenType::UNIQUE, TokenType::PRIMARY, TokenType::KEY, TokenType::NULL, TokenType::ALLOW, TokenType::TEXT, TokenType::BLOB, TokenType::COMMA];
-        let allowed_token_types_in_where = vec![TokenType::IDENTIFIER, TokenType::EQUAL, TokenType::BangEqual, TokenType::GREATER, TokenType::GreaterEqual, TokenType::LESS, TokenType::LessEqual, TokenType::BETWEEN, TokenType::AND, TokenType::OR, TokenType::NUMBER, TokenType::STRING, TokenType::TEXT];
+        let allowed_token_types_in_create = vec![
+            TokenType::INTEGER,
+            TokenType::AUTOINCREMENT,
+            TokenType::UNIQUE,
+            TokenType::PRIMARY,
+            TokenType::KEY,
+            TokenType::NULL,
+            TokenType::ALLOW,
+            TokenType::TEXT,
+            TokenType::BLOB,
+            TokenType::COMMA,
+        ];
+        let allowed_token_types_in_where = vec![
+            TokenType::IDENTIFIER,
+            TokenType::EQUAL,
+            TokenType::BangEqual,
+            TokenType::GREATER,
+            TokenType::GreaterEqual,
+            TokenType::LESS,
+            TokenType::LessEqual,
+            TokenType::BETWEEN,
+            TokenType::AND,
+            TokenType::OR,
+            TokenType::NUMBER,
+            TokenType::STRING,
+            TokenType::TEXT,
+        ];
 
         let mut index: usize = 0;
 
@@ -64,13 +89,21 @@ impl Statement {
                     let mut next_index = index + 1;
 
                     if next_index >= tokens.len() {
-                        bail!("CREATE statement must be followed by an Identifier: {}:{}", token.line, token.column);
+                        bail!(
+                            "CREATE statement must be followed by an Identifier: {}:{}",
+                            token.line,
+                            token.column
+                        );
                     }
 
                     let mut next_token = &tokens[next_index];
 
                     if next_token.token_type != TokenType::TABLE {
-                        bail!("CREATE statement must be followed by an Identifier: {}:{}", next_token.line, next_token.column);
+                        bail!(
+                            "CREATE statement must be followed by an Identifier: {}:{}",
+                            next_token.line,
+                            next_token.column
+                        );
                     }
 
                     next_index += 1;
@@ -78,7 +111,11 @@ impl Statement {
                     next_token = &tokens[next_index];
 
                     if next_token.token_type != TokenType::IDENTIFIER {
-                        bail!("Syntax Error: line: {}:{}", next_token.line, next_token.column);
+                        bail!(
+                            "Syntax Error: line: {}:{}",
+                            next_token.line,
+                            next_token.column
+                        );
                     }
 
                     statement.tables.push(next_token.clone());
@@ -88,13 +125,16 @@ impl Statement {
                     next_token = &tokens[next_index];
 
                     if next_token.token_type != TokenType::LeftParen {
-                        bail!("Syntax Error at line {}:{}", next_token.line, next_token.column)
+                        bail!(
+                            "Syntax Error at line {}:{}",
+                            next_token.line,
+                            next_token.column
+                        )
                     }
 
                     next_index += 1;
 
                     next_token = &tokens[next_index];
-
 
                     loop {
                         let next_token = &tokens[next_index];
@@ -123,20 +163,33 @@ impl Statement {
                     let mut next_index = index + 1;
 
                     if next_index >= tokens.len() {
-                        bail!("Select statement must be followed by an Identifier or *, line: {}:{}", token.line, token.column);
+                        bail!(
+                            "Select statement must be followed by an Identifier or *, line: {}:{}",
+                            token.line,
+                            token.column
+                        );
                     }
 
                     let next_token = &tokens[next_index];
 
-                    if next_token.token_type == TokenType::IDENTIFIER || next_token.token_type == TokenType::STAR || next_token.token_type == TokenType::COUNT {
+                    if next_token.token_type == TokenType::IDENTIFIER
+                        || next_token.token_type == TokenType::STAR
+                        || next_token.token_type == TokenType::COUNT
+                    {
                         statement.columns.push(next_token.clone());
 
                         next_index += 1;
 
                         let new_token = &tokens[next_index];
 
-                        if next_token.token_type == TokenType::STAR && new_token.token_type == TokenType::IDENTIFIER {
-                            bail!("Syntax Error at line {}:{}", new_token.line, new_token.column)
+                        if next_token.token_type == TokenType::STAR
+                            && new_token.token_type == TokenType::IDENTIFIER
+                        {
+                            bail!(
+                                "Syntax Error at line {}:{}",
+                                new_token.line,
+                                new_token.column
+                            )
                         }
 
                         loop {
@@ -155,7 +208,11 @@ impl Statement {
 
                         index = next_index;
                     } else {
-                        bail!("Select statement must be followed by an Identifier or *, line: {}:{}", next_token.line, next_token.column);
+                        bail!(
+                            "Select statement must be followed by an Identifier or *, line: {}:{}",
+                            next_token.line,
+                            next_token.column
+                        );
                     }
                 }
 
@@ -175,13 +232,21 @@ impl Statement {
                     let mut next_index = index + 1;
 
                     if next_index >= tokens.len() {
-                        bail!("From statement must be followed by an Identifier, line: {}:{}", token.line, token.column);
+                        bail!(
+                            "From statement must be followed by an Identifier, line: {}:{}",
+                            token.line,
+                            token.column
+                        );
                     }
 
                     let next_token = &tokens[next_index];
 
                     if next_token.token_type != TokenType::IDENTIFIER {
-                        bail!("From statement must be followed by an Identifier, line: {}:{}", next_token.line, next_token.column);
+                        bail!(
+                            "From statement must be followed by an Identifier, line: {}:{}",
+                            next_token.line,
+                            next_token.column
+                        );
                     }
 
                     statement.tables.push(next_token.clone());
@@ -207,13 +272,21 @@ impl Statement {
                     let mut next_index = index + 1;
 
                     if next_index >= tokens.len() {
-                        bail!("Where statement must be followed by an Identifier, line: {}:{}", token.line, token.column);
+                        bail!(
+                            "Where statement must be followed by an Identifier, line: {}:{}",
+                            token.line,
+                            token.column
+                        );
                     }
 
                     let next_token = &tokens[next_index];
 
                     if next_token.token_type != TokenType::IDENTIFIER {
-                        bail!("Where statement must be followed by an Identifier, line: {}:{}", next_token.line, next_token.column);
+                        bail!(
+                            "Where statement must be followed by an Identifier, line: {}:{}",
+                            next_token.line,
+                            next_token.column
+                        );
                     }
 
                     statement.where_conditions.push(next_token.clone());
@@ -247,7 +320,11 @@ impl Statement {
                     let limit_token = &tokens[next_index];
 
                     if limit_token.token_type != TokenType::NUMBER {
-                        bail!("LIMIT statement must be followed by a number, line: {}:{}", limit_token.line, limit_token.column);
+                        bail!(
+                            "LIMIT statement must be followed by a number, line: {}:{}",
+                            limit_token.line,
+                            limit_token.column
+                        );
                     }
 
                     let limit_value = limit_token.lexeme.parse::<u64>()?;
@@ -317,7 +394,7 @@ impl Statement {
                     index += 1;
                 }
 
-                _ => bail!("Invalid Token {:?}", token)
+                _ => bail!("Invalid Token {:?}", token),
             }
         }
 
@@ -336,7 +413,7 @@ impl Statement {
         let res = match row.get(&where_column.lexeme) {
             None => false,
 
-            Some((col_type, data)) => {
+            Some((_, data)) => {
                 i += 1;
 
                 while i < len {
@@ -367,14 +444,13 @@ impl Statement {
 
                         TokenType::GREATER => todo!(),
 
-                        _ => false
+                        _ => false,
                     };
 
                     result.push(match_res);
 
                     i += 2;
                 }
-
 
                 result.iter().any(|&x| x == false)
             }
