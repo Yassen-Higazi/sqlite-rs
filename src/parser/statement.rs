@@ -51,6 +51,7 @@ impl Statement {
             TokenType::TEXT,
             TokenType::BLOB,
             TokenType::COMMA,
+            TokenType::NOT,
         ];
         let allowed_token_types_in_where = vec![
             TokenType::IDENTIFIER,
@@ -112,7 +113,7 @@ impl Statement {
 
                     next_token = &tokens[next_index];
 
-                    if next_token.token_type != TokenType::IDENTIFIER {
+                    if next_token.token_type != TokenType::IDENTIFIER && next_token.token_type != TokenType::TEXT {
                         bail!(
                             "Syntax Error: line: {}:{}",
                             next_token.line,

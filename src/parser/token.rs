@@ -34,6 +34,7 @@ pub enum TokenType {
     UNIQUE,
     FOREIGN,
     ALLOW,
+    NOT,
     NULL,
     INTEGER,
     TEXT,
@@ -122,6 +123,7 @@ impl From<String> for TokenType {
             "BLOB" => TokenType::BLOB,
             "ALLOW" => TokenType::ALLOW,
             "COUNT" => TokenType::COUNT,
+            "NOT" => TokenType::NOT,
             _ => TokenType::IDENTIFIER,
         }
     }

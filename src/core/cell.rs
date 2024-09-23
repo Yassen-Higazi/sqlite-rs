@@ -137,18 +137,16 @@ pub struct Record {
 
 impl Record {
     fn from_table_leaf(buffer: &Vec<u8>, _encoding: &TextEncoding) -> Result<Self> {
-        let (header_size, size_var_end) =
-            u32::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
+        let (header_size, mut bytes, header_size_var_end) =
+            parse_varint(buffer).with_context(|| "Could not parse cell size varint")?;
 
-        let mut next_index = size_var_end;
+        let mut next_index = header_size_var_end;
 
         let body = buffer[header_size as usize..].to_vec();
 
         let mut column_types = Vec::<ColumnTypes>::with_capacity(header_size as usize);
 
-        let mut bytes = &buffer[next_index..];
-
-        while next_index < header_size as usize {
+        while next_index <= header_size as usize {
             let (column, column_bytes, column_size) =
                 parse_varint(bytes).with_context(|| "Could not decode Record serial Type")?;
 
@@ -164,7 +162,7 @@ impl Record {
         Ok(Self {
             body,
             column_types,
-            size: header_size,
+            size: header_size as u32,
         })
     }
 }
