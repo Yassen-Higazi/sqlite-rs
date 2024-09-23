@@ -1,8 +1,10 @@
-use crate::core::cell::PageCell;
+use crate::core::cell::{CellPayload, PageCell};
 use crate::core::header::DBHeader;
 use crate::core::page::PageTypes::{IndexBTree, TableBTree};
-
 use anyhow::{Context, Result};
+use std::fs::File;
+use std::os::unix::prelude::FileExt;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy)]
 pub enum BTreePageSubType {
@@ -24,8 +26,8 @@ impl From<&u8> for PageTypes {
     fn from(value: &u8) -> Self {
         let page_type = match value {
             2 => IndexBTree(BTreePageSubType::Interior),
-            5 => IndexBTree(BTreePageSubType::Leaf),
-            10 => TableBTree(BTreePageSubType::Interior),
+            5 => TableBTree(BTreePageSubType::Interior),
+            10 => IndexBTree(BTreePageSubType::Leaf),
             13 => TableBTree(BTreePageSubType::Leaf),
             _ => {
                 panic!("Invalid Page Type")
@@ -36,8 +38,8 @@ impl From<&u8> for PageTypes {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Page {
+#[derive(Debug)]
+pub struct Page<'file> {
     pub header: DBHeader,
     pub page_type: PageTypes,
     pub page_size: u16,
@@ -48,10 +50,18 @@ pub struct Page {
     pub right_most_pointer: Option<u32>,
     pub cell_pointers: Vec<u16>,
     pub cells: Vec<PageCell>,
+
+    file: &'file File,
 }
 
-impl Page {
-    pub fn new(buffer: &Vec<u8>, page_size: u16, page_number: u64) -> Result<Self> {
+impl<'file> Page<'file> {
+    pub fn new(file: &'file File, page_size: u16, page_number: u64) -> Result<Self> {
+        let mut buffer = vec![0u8; page_size as usize];
+
+        let page_offset = ((page_number as u16 - 1) * page_size) as u64;
+
+        file.read_exact_at(&mut buffer, page_offset)?;
+
         let mut start_index = 0;
 
         let header = DBHeader::new(&buffer)?;
@@ -117,6 +127,7 @@ impl Page {
         }
 
         Ok(Self {
+            file,
             cells,
             header,
             page_size,
@@ -141,5 +152,26 @@ impl Page {
         } else {
             value
         }
+    }
+
+    pub fn get_payloads(&self) -> Vec<(u32, Rc<CellPayload>)> {
+        let mut result: Vec<(u32, Rc<CellPayload>)> = vec![];
+
+        for cell in &self.cells {
+            match cell.left_pointer {
+                None => {
+                    result.push((cell.row_id, Rc::clone(&cell.payload)))
+                }
+
+                Some(_) => {
+
+                    // let new_page = Page::
+
+                    todo!()
+                }
+            }
+        }
+
+        result
     }
 }

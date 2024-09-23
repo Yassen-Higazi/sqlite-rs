@@ -3,7 +3,6 @@ use crate::core::page::Page;
 use crate::core::schema::{SchemaTable, SchemaTypesTypes};
 use crate::parser::scanner::Scanner;
 use std::collections::HashMap;
-use std::fmt::Display;
 
 use crate::core::cell::ColumnTypes;
 use crate::parser::statement::{Statement, StatementType};
@@ -15,18 +14,15 @@ use std::os::unix::prelude::FileExt;
 
 pub type Row = HashMap<String, (ColumnTypes, Vec<u8>)>;
 
-pub struct Database {
-    file: File,
-    root_page: Page,
+pub struct Database<'file> {
+    file: &'file File,
+    root_page: Page<'file>,
     header: DBHeader,
     scanner: Scanner,
-    db_file_name: String,
 }
 
-impl Database {
-    pub fn new(db_file_name: &String) -> Result<Self> {
-        let mut file = File::open(&db_file_name)?;
-
+impl<'file> Database<'file> {
+    pub fn new(file: &'file mut File) -> Result<Database<'file>> {
         let mut size_buf = vec![0u8; 2];
 
         file.read_at(&mut size_buf, 16)
@@ -38,13 +34,12 @@ impl Database {
 
         file.read_exact(&mut page_buffer)?;
 
-        let root_page = Page::new(&page_buffer, page_size, 1)?;
+        let root_page = Page::new(file, page_size, 1)?;
 
         let db = Self {
             file,
             scanner: Scanner::new(),
             header: root_page.header.clone(),
-            db_file_name: db_file_name.clone(),
             root_page,
         };
 
@@ -55,7 +50,7 @@ impl Database {
         let mut tables = Vec::with_capacity(self.root_page.cells.len());
 
         for cell in &self.root_page.cells {
-            let schema = SchemaTable::from(&cell.record);
+            let schema = SchemaTable::from(&cell.payload);
 
             if schema.schema_type == SchemaTypesTypes::Table {
                 tables.push(schema);
@@ -69,7 +64,7 @@ impl Database {
         let mut table: Option<SchemaTable> = None;
 
         for cell in &self.root_page.cells {
-            let schema = SchemaTable::from(&cell.record);
+            let schema = SchemaTable::from(&cell.payload);
 
             if schema.schema_type == SchemaTypesTypes::Table && &schema.tbl_name == table_name {
                 table = Some(schema);
@@ -81,13 +76,7 @@ impl Database {
     }
 
     fn read_page(&self, page_number: i32) -> Result<Page> {
-        let mut page_buff = vec![0u8; self.header.page_size as usize];
-
-        let page_offset = ((page_number as u16 - 1) * self.header.page_size) as u64;
-
-        self.file.read_exact_at(&mut page_buff, page_offset)?;
-
-        let table_root_page = Page::new(&page_buff, self.header.page_size, page_number as u64)?;
+        let table_root_page = Page::new(&self.file, self.header.page_size, page_number as u64)?;
 
         Ok(table_root_page)
     }
@@ -114,25 +103,26 @@ impl Database {
 
         let mut column_vec = Vec::with_capacity(page.cells.len());
 
-        for i in 0..page.cells.len() {
+        for (row_id, payload) in page.get_payloads() {
             let mut index = 0;
 
-            let cell = &page.cells[i];
-            let cell_data = &cell.record;
-
             let mut meta = Row::new();
+
+            if payload.column_types.len() == 0 {
+                return Ok(column_vec);
+            }
 
             for j in 0..create_statement.columns.len() {
                 let column_name = &create_statement.columns[j];
 
-                let cell_type = &cell_data.column_types[j];
+                let cell_type = &payload.column_types[j];
 
                 let len = cell_type.get_len() as usize;
 
-                let data = &cell_data.body[index..index + len];
+                let data = &payload.body[index..index + len];
 
                 if column_name.lexeme == "id" {
-                    let bytes = cell.row_id.to_be_bytes().to_vec();
+                    let bytes = row_id.to_be_bytes().to_vec();
                     let data = (ColumnTypes::new(bytes.len() as u64)?, bytes);
 
                     meta.insert(column_name.lexeme.to_string(), data);
@@ -142,7 +132,6 @@ impl Database {
                         (cell_type.clone(), data.to_vec()),
                     );
                 }
-
 
                 index += len;
             }
@@ -183,6 +172,10 @@ impl Database {
 
                 let rows = self.get_data(&schema)?;
 
+                if rows.len() == 0 {
+                    return Ok(());
+                }
+
                 let mut selected_columns = &statement.columns;
 
                 for col_index in 0..statement.columns.len() {
@@ -207,7 +200,7 @@ impl Database {
                 for row_index in 0..limit {
                     let row = &rows[row_index];
 
-                    if statement.evaluate_where(&row)? {
+                    if !statement.evaluate_where(&row)? {
                         for col_index in 0..selected_columns.len() {
                             let col = &selected_columns[col_index];
 

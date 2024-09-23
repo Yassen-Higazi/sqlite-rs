@@ -1,4 +1,5 @@
 use crate::core::page::{BTreePageSubType, PageTypes};
+use std::rc::Rc;
 
 use crate::core::header::TextEncoding;
 use crate::utils::parse_varint;
@@ -129,13 +130,13 @@ impl ColumnTypes {
 }
 
 #[derive(Clone, Debug)]
-pub struct Record {
+pub struct CellPayload {
     pub size: u32,
     pub body: Vec<u8>,
     pub column_types: Vec<ColumnTypes>,
 }
 
-impl Record {
+impl CellPayload {
     fn from_table_leaf(buffer: &Vec<u8>, _encoding: &TextEncoding) -> Result<Self> {
         let (header_size, mut bytes, header_size_var_end) =
             parse_varint(buffer).with_context(|| "Could not parse cell size varint")?;
@@ -167,17 +168,17 @@ impl Record {
     }
 }
 
-impl Record {
+impl CellPayload {
     pub fn new(buffer: &Vec<u8>, value: PageTypes, encoding: &TextEncoding) -> Result<Self> {
         // println!("B-tree Type: {value:?}");
         match value {
             PageTypes::TableBTree(b_tee_type) => match b_tee_type {
-                BTreePageSubType::Leaf => Record::from_table_leaf(buffer, encoding),
+                BTreePageSubType::Leaf => CellPayload::from_table_leaf(buffer, encoding),
 
                 _ => Ok(Self {
                     size: 0,
-                    body: vec![],
-                    column_types: vec![],
+                    body: Vec::with_capacity(0),
+                    column_types: Vec::with_capacity(0),
                 }),
             },
 
@@ -192,7 +193,8 @@ impl Record {
 pub struct PageCell {
     pub cell_size: u32,
     pub row_id: u32,
-    pub record: Record,
+    pub payload: Rc<CellPayload>,
+    pub left_pointer: Option<u32>,
 }
 
 impl PageCell {
@@ -204,19 +206,41 @@ impl PageCell {
         let (size, size_var_end) =
             u32::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
 
-        let mut next_index = size_var_end;
+        let mut next_index = std::cmp::min(size as usize, size_var_end);
 
         let (rowid, rowid_var_end) = u32::decode_var(&buffer[next_index..buffer.len()])
             .with_context(|| "Could not parse cell rowid varint")?;
 
-        next_index += rowid_var_end;
+        next_index += std::cmp::min(rowid as usize, rowid_var_end);
+
+        let left_pointer: Option<u32> = match btree_type {
+            PageTypes::IndexBTree(sub_type) | PageTypes::TableBTree(sub_type) => match sub_type {
+                BTreePageSubType::Leaf => None,
+
+                BTreePageSubType::Interior => {
+                    let res = u32::from_be_bytes([
+                        buffer[next_index],
+                        buffer[next_index + 1],
+                        buffer[next_index + 2],
+                        buffer[next_index + 3],
+                    ]);
+
+                    next_index += 4;
+
+                    Some(res)
+                }
+            },
+
+            _ => None,
+        };
 
         let record_buffer = buffer[next_index..].to_vec();
 
         let cell = Self {
+            left_pointer,
             row_id: rowid,
             cell_size: size,
-            record: Record::new(&record_buffer, btree_type, encoding)?,
+            payload: Rc::new(CellPayload::new(&record_buffer, btree_type, encoding)?),
         };
 
         Ok(cell)

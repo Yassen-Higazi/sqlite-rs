@@ -1,8 +1,11 @@
+#![allow(warnings)]
+
 mod core;
 mod parser;
 mod utils;
 
 use core::database::Database;
+use std::fs::File;
 
 use anyhow::{bail, Result};
 
@@ -22,7 +25,9 @@ fn main() -> Result<()> {
 
     let command = &args[2];
 
-    let db = Database::new(db_file_name)?;
+    let mut file = File::open(&db_file_name)?;
+
+    let db = Database::new(&mut file)?;
 
     db.execute_command(command)?;
 

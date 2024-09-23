@@ -1,8 +1,9 @@
-use crate::core::cell::{ColumnTypes, Record};
+use crate::core::cell::{CellPayload, ColumnTypes};
 use crate::parser::scanner::Scanner;
 use crate::parser::statement::Statement;
 
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq)]
 pub enum SchemaTypesTypes {
@@ -39,8 +40,8 @@ impl From<&str> for SchemaTypesTypes {
     }
 }
 
-impl From<&Record> for SchemaTable {
-    fn from(record: &Record) -> Self {
+impl From<&Rc<CellPayload>> for SchemaTable {
+    fn from(record: &Rc<CellPayload>) -> Self {
         let mut root_page = 0;
 
         let mut schema_type = SchemaTypesTypes::Table;
@@ -88,9 +89,12 @@ impl From<&Record> for SchemaTable {
 
         let mut scanner = Scanner::new();
 
-        scanner.scan(&columns[2]).expect("Could not scan create statement;");
+        scanner
+            .scan(&columns[2])
+            .expect("Could not scan create statement;");
 
-        let create_statement = Statement::new(scanner.get_tokens()).expect("Could not parse create statement;");
+        let create_statement =
+            Statement::new(scanner.get_tokens()).expect("Could not parse create statement;");
 
         Self {
             root_page,

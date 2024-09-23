@@ -1,3 +1,5 @@
+use crate::utils::convert_u32_to_bytes;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
     CREATE,
@@ -139,11 +141,18 @@ impl Token {
         }
     }
 
-    pub fn get_lexeme_bytes(&self) -> &[u8] {
+    pub fn get_lexeme_bytes(&self) -> Vec<u8> {
         match self.token_type {
-            TokenType::TEXT => self.lexeme.as_str()[1..self.lexeme.len() - 1].as_bytes(),
+            TokenType::TEXT => self.lexeme.as_str()[1..self.lexeme.len() - 1].as_bytes().to_vec(),
 
-            _ => self.lexeme.as_bytes(),
+            TokenType::NUMBER => convert_u32_to_bytes(
+                u32::from_str_radix(&self.lexeme, 10)
+                    .expect(format!("Could not convert {} to bytes", &self.lexeme)
+                        .as_str()
+                    )
+            ).to_vec(),
+
+            _ => self.lexeme.as_bytes().to_vec(),
         }
     }
 }

@@ -113,7 +113,9 @@ impl Statement {
 
                     next_token = &tokens[next_index];
 
-                    if next_token.token_type != TokenType::IDENTIFIER && next_token.token_type != TokenType::TEXT {
+                    if next_token.token_type != TokenType::IDENTIFIER
+                        && next_token.token_type != TokenType::TEXT
+                    {
                         bail!(
                             "Syntax Error: line: {}:{}",
                             next_token.line,
@@ -140,7 +142,7 @@ impl Statement {
                     next_token = &tokens[next_index];
 
                     loop {
-                        let next_token = &tokens[next_index];
+                        next_token = &tokens[next_index];
 
                         if next_token.token_type == TokenType::IDENTIFIER {
                             statement.columns.push(next_token.clone());
@@ -410,7 +412,7 @@ impl Statement {
         let len = self.where_conditions.len();
 
         if len == 0 {
-            return Ok(true);
+            return Ok(false);
         }
 
         let mut result = Vec::<bool>::new();
@@ -432,7 +434,7 @@ impl Statement {
 
                             i += 1;
 
-                            next_token.get_lexeme_bytes() != data
+                            next_token.get_lexeme_bytes().as_slice() != data
                         }
 
                         TokenType::EQUAL => {
@@ -440,7 +442,7 @@ impl Statement {
 
                             i += 1;
 
-                            next_token.get_lexeme_bytes() == data
+                            next_token.get_lexeme_bytes().as_slice() == data
                         }
 
                         TokenType::LessEqual => todo!(),
