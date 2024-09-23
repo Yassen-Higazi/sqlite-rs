@@ -110,11 +110,7 @@ impl Database {
     pub fn get_data(&self, schema: &SchemaTable) -> Result<Vec<Row>> {
         let page = self.read_page(schema.root_page)?;
 
-        let mut scanner = Scanner::new();
-
-        scanner.scan(&schema.sql)?;
-
-        let create_statement = Statement::new(scanner.get_tokens())?;
+        let create_statement = &schema.statement;
 
         let mut column_vec = Vec::with_capacity(page.cells.len());
 
@@ -242,7 +238,7 @@ impl Database {
 
             _ => match command.as_str() {
                 ".dbinfo" => {
-                    println!("{}", self.header,);
+                    println!("{}", self.header, );
                     println!("number of tables:    {}", self.get_table_schemas().len());
                 }
 
@@ -271,8 +267,7 @@ impl Database {
                         let table_name = split.last().unwrap();
 
                         println!("{}", self.count_records(&table_name.to_string())?)
-                    } else {
-                    }
+                    } else {}
                     bail!("Missing or invalid command passed: {}", command)
                 }
             },

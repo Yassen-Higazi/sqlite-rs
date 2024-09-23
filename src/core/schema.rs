@@ -1,4 +1,7 @@
 use crate::core::cell::{ColumnTypes, Record};
+use crate::parser::scanner::Scanner;
+use crate::parser::statement::Statement;
+
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, PartialEq)]
@@ -83,11 +86,18 @@ impl From<&Record> for SchemaTable {
             }
         }
 
+        let mut scanner = Scanner::new();
+
+        scanner.scan(&columns[2]).expect("Could not scan create statement;");
+
+        let create_statement = Statement::new(scanner.get_tokens()).expect("Could not parse create statement;");
+
         Self {
             root_page,
             schema_type,
             sql: columns[2].to_owned(),
             name: columns[0].to_owned(),
+            statement: create_statement,
             tbl_name: columns[1].to_owned(),
         }
     }
@@ -99,6 +109,7 @@ pub struct SchemaTable {
     pub name: String,
     pub root_page: i32,
     pub tbl_name: String,
+    pub statement: Statement,
     pub schema_type: SchemaTypesTypes,
 }
 

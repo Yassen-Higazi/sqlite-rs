@@ -2,6 +2,7 @@ use crate::core::database::Row;
 use crate::parser::token::{Token, TokenType};
 use anyhow::{anyhow, bail, Result};
 
+#[derive(Debug)]
 pub enum StatementType {
     CREATE,
     INSERT,
@@ -25,6 +26,7 @@ impl From<TokenType> for StatementType {
     }
 }
 
+#[derive(Debug)]
 pub struct Statement {
     pub limit: Option<u64>,
     pub order: Vec<Token>,
