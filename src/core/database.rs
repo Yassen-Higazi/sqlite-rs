@@ -174,16 +174,17 @@ impl Database {
 
                 let rows = self.get_data(&schema)?;
 
+                let mut selected_columns = &statement.columns;
+
                 for col_index in 0..statement.columns.len() {
                     let col = &statement.columns[col_index];
 
-                    if rows[0].get(&col.lexeme).is_none() {
+                    if col.token_type == TokenType::STAR {
+                        selected_columns = &schema.statement.columns;
+                        break;
+                    } else if rows[0].get(&col.lexeme).is_none() {
                         bail!("No such Column: {}", col.lexeme)
                     }
-
-                    // print!("{} ", col.lexeme);
-                    //
-                    // if col_index == statement.columns.len() - 1 { print!("\n"); }
                 }
 
                 let mut limit: usize = 0;
@@ -194,43 +195,28 @@ impl Database {
                     limit = rows.len();
                 }
 
-                let mut new_line = true;
-
                 for row_index in 0..limit {
                     let row = &rows[row_index];
 
-                    for col_index in 0..statement.columns.len() {
-                        let col = &statement.columns[col_index];
+                    if statement.evaluate_where(&row)? {
+                        for col_index in 0..selected_columns.len() {
+                            let col = &selected_columns[col_index];
 
-                        match row.get(&col.lexeme) {
-                            None => continue,
+                            match row.get(&col.lexeme) {
+                                None => continue,
 
-                            Some((col_type, data)) => {
-                                if statement.where_conditions.len() > 0 {
-                                    if !statement.evaluate_where(&row)? {
-                                        col_type.print(data).with_context(|| {
-                                            format!("Could not print column Type: {col_type:?}")
-                                        })?;
-                                        new_line = true;
-                                    } else {
-                                        new_line = false;
-                                        break;
-                                    }
-                                } else {
+                                Some((col_type, data)) => {
                                     col_type.print(data).with_context(|| {
                                         format!("Could not print column Type: {col_type:?}")
                                     })?;
-                                    new_line = true;
                                 }
+                            }
+
+                            if col_index != selected_columns.len() - 1 {
+                                print!("|")
                             }
                         }
 
-                        if col_index != statement.columns.len() - 1 {
-                            print!("|")
-                        }
-                    }
-
-                    if new_line {
                         print!("\n");
                     }
                 }

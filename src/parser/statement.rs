@@ -408,6 +408,10 @@ impl Statement {
 
         let len = self.where_conditions.len();
 
+        if len == 0 {
+            return Ok(true);
+        }
+
         let mut result = Vec::<bool>::new();
 
         let where_column = &self.where_conditions[i];
