@@ -1,18 +1,19 @@
 use crate::core::cell::{CellPayload, PageCell};
 use crate::core::header::DBHeader;
+use crate::core::page::BTreePageSubType::{Interior, Leaf};
 use crate::core::page::PageTypes::{IndexBTree, TableBTree};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::fs::File;
 use std::os::unix::prelude::FileExt;
 use std::rc::Rc;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BTreePageSubType {
     Leaf,
     Interior,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PageTypes {
     Lock,
     FreeList,
@@ -25,10 +26,10 @@ pub enum PageTypes {
 impl From<&u8> for PageTypes {
     fn from(value: &u8) -> Self {
         let page_type = match value {
-            2 => IndexBTree(BTreePageSubType::Interior),
-            5 => TableBTree(BTreePageSubType::Interior),
-            10 => IndexBTree(BTreePageSubType::Leaf),
-            13 => TableBTree(BTreePageSubType::Leaf),
+            2 => IndexBTree(Interior),
+            5 => TableBTree(Interior),
+            10 => IndexBTree(Leaf),
+            13 => TableBTree(Leaf),
             _ => {
                 panic!("Invalid Page Type")
             }
@@ -66,7 +67,7 @@ impl<'file> Page<'file> {
 
         let header = DBHeader::new(&buffer)?;
 
-        if page_number == 1 {
+        if page_number == 1 || page_offset == 0 {
             start_index = 100;
         }
 
@@ -119,8 +120,7 @@ impl<'file> Page<'file> {
             if pointer != 0 {
                 let cell_vec = &buffer[(pointer as usize)..].to_vec();
 
-                let cell = PageCell::new(&cell_vec.to_vec(), page_type, &header.text_encoding)
-                    .with_context(|| format!("could not initiate page Cell as: {}", pointer))?;
+                let cell = PageCell::new(&cell_vec.to_vec(), page_type, &header.text_encoding)?;
 
                 cells.push(cell);
             }
@@ -154,7 +154,8 @@ impl<'file> Page<'file> {
         }
     }
 
-    pub fn get_payloads(&self) -> Vec<(u32, Rc<CellPayload>)> {
+    pub fn get_payloads(&self, pointers: &mut Vec<u32>) -> Result<Vec<(u32, Rc<CellPayload>)>> {
+        let mut pages_len = 0;
         let mut result: Vec<(u32, Rc<CellPayload>)> = vec![];
 
         for cell in &self.cells {
@@ -163,15 +164,53 @@ impl<'file> Page<'file> {
                     result.push((cell.row_id, Rc::clone(&cell.payload)))
                 }
 
-                Some(_) => {
+                Some(pointer) => {
+                    let mut page = Page::new(self.file, self.page_size, pointer as u64)?;
 
-                    // let new_page = Page::
+                    pages_len += 1;
+                    let mut i = 0;
 
-                    todo!()
+                    while i < pages_len {
+                        match page.page_type {
+                            TableBTree(Interior) => {
+                                for cell in &page.cells {
+                                    match cell.left_pointer {
+                                        None => {
+                                            result.push((cell.row_id, Rc::clone(&cell.payload)))
+                                        }
+
+                                        Some(pointer) => {
+                                            if !pointers.contains(&pointer) {
+                                                println!("Pointer: {pointer}");
+                                                pointers.push(pointer);
+
+                                                let page = Page::new(self.file, self.page_size, pointer as u64)?;
+
+                                                result.append(&mut page.get_payloads(pointers)?);
+
+                                                pages_len += 1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            TableBTree(Leaf) => {
+                                let _ = page.cells.iter().map(|c| result.push((c.row_id, Rc::clone(&c.payload))));
+                                break;
+                            }
+
+                            otherwise => {
+                                println!("PageType: {otherwise:?}");
+                            }
+                        }
+
+                        i += 1;
+                    }
                 }
             }
         }
 
-        result
+        Ok(result)
     }
 }

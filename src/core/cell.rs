@@ -172,7 +172,7 @@ impl CellPayload {
     pub fn new(buffer: &Vec<u8>, value: PageTypes, encoding: &TextEncoding) -> Result<Self> {
         // println!("B-tree Type: {value:?}");
         match value {
-            PageTypes::TableBTree(b_tee_type) => match b_tee_type {
+            PageTypes::TableBTree(b_tee_type) | PageTypes::IndexBTree(b_tee_type) => match b_tee_type {
                 BTreePageSubType::Leaf => CellPayload::from_table_leaf(buffer, encoding),
 
                 _ => Ok(Self {
@@ -208,11 +208,6 @@ impl PageCell {
 
         let mut next_index = std::cmp::min(size as usize, size_var_end);
 
-        let (rowid, rowid_var_end) = u32::decode_var(&buffer[next_index..buffer.len()])
-            .with_context(|| "Could not parse cell rowid varint")?;
-
-        next_index += std::cmp::min(rowid as usize, rowid_var_end);
-
         let left_pointer: Option<u32> = match btree_type {
             PageTypes::IndexBTree(sub_type) | PageTypes::TableBTree(sub_type) => match sub_type {
                 BTreePageSubType::Leaf => None,
@@ -233,6 +228,11 @@ impl PageCell {
 
             _ => None,
         };
+
+        let (rowid, rowid_var_end) = u32::decode_var(&buffer[next_index..buffer.len()])
+            .with_context(|| "Could not parse cell rowid varint")?;
+
+        next_index += std::cmp::min(rowid as usize, rowid_var_end);
 
         let record_buffer = buffer[next_index..].to_vec();
 

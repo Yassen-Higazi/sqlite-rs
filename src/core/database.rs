@@ -103,7 +103,9 @@ impl<'file> Database<'file> {
 
         let mut column_vec = Vec::with_capacity(page.cells.len());
 
-        for (row_id, payload) in page.get_payloads() {
+        let mut pointers: Vec<u32> = vec![];
+
+        for (row_id, payload) in page.get_payloads(&mut pointers)? {
             let mut index = 0;
 
             let mut meta = Row::new();
