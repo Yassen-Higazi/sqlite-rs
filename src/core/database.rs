@@ -152,114 +152,101 @@ impl<'file> Database<'file> {
         let statement = Statement::new(tokens)?;
 
         match statement.statement_type {
-            StatementType::SELECT => {
-                let table_name = &statement.tables.first().unwrap().lexeme;
+            StatementType::SELECT => self.handle_select(&statement),
 
-                let is_count = statement
-                    .columns
-                    .iter()
-                    .any(|token| token.token_type == TokenType::COUNT);
-
-                if is_count {
-                    println!("{}", self.count_records(&table_name)?);
-
-                    return Ok(());
-                }
-
-                let schema = self
-                    .get_table_schema(table_name)
-                    .with_context(|| format!("Could not Get Table Schema: {}", table_name))?;
-
-                let rows = self.get_data(&schema)?;
-
-                if rows.len() == 0 {
-                    return Ok(());
-                }
-
-                let mut selected_columns = &statement.columns;
-
-                for col_index in 0..statement.columns.len() {
-                    let col = &statement.columns[col_index];
-
-                    if col.token_type == TokenType::STAR {
-                        selected_columns = &schema.statement.columns;
-                        break;
-                    } else if rows[0].get(&col.lexeme).is_none() {
-                        bail!("No such Column: {}", col.lexeme)
+            _ => {
+                match command.as_str() {
+                    ".dbinfo" => {
+                        println!("{}", self.header, );
+                        println!("number of tables:    {}", self.get_table_schemas().len());
                     }
-                }
 
-                let mut limit: usize = 0;
+                    ".tables" => {
+                        let tables = self.get_table_schemas();
 
-                if let Some(lim) = statement.limit {
-                    limit = std::cmp::min(lim as usize, rows.len());
-                } else {
-                    limit = rows.len();
-                }
-
-                for row_index in 0..limit {
-                    let row = &rows[row_index];
-
-                    if !statement.evaluate_where(&row)? {
-                        for col_index in 0..selected_columns.len() {
-                            let col = &selected_columns[col_index];
-
-                            match row.get(&col.lexeme) {
-                                None => continue,
-
-                                Some((col_type, data)) => {
-                                    col_type.print(data).with_context(|| {
-                                        format!("Could not print column Type: {col_type:?}")
-                                    })?;
-                                }
-                            }
-
-                            if col_index != selected_columns.len() - 1 {
-                                print!("|")
-                            }
+                        for t in tables {
+                            print!("{} ", t.tbl_name);
                         }
-
-                        print!("\n");
                     }
-                }
+
+                    _ => bail!("Missing or invalid command passed: {}", command)
+                };
+
+                Ok(())
             }
+        }
+    }
 
-            _ => match command.as_str() {
-                ".dbinfo" => {
-                    println!("{}", self.header, );
-                    println!("number of tables:    {}", self.get_table_schemas().len());
-                }
+    fn handle_select(&self, statement: &Statement) -> Result<()> {
+        let table_name = &statement.tables.first().unwrap().lexeme;
 
-                ".tables" => {
-                    let tables = self.get_table_schemas();
+        let is_count = statement
+            .columns
+            .iter()
+            .any(|token| token.token_type == TokenType::COUNT);
 
-                    for t in tables {
-                        print!("{} ", t.tbl_name);
+        if is_count {
+            println!("{}", self.count_records(&table_name)?);
+
+            return Ok(());
+        }
+
+        let schema = self
+            .get_table_schema(table_name)
+            .with_context(|| format!("Could not Get Table Schema: {}", table_name))?;
+
+        let rows = self.get_data(&schema)?;
+
+        if rows.len() == 0 {
+            return Ok(());
+        }
+
+        let mut selected_columns = &statement.columns;
+
+        for col_index in 0..statement.columns.len() {
+            let col = &statement.columns[col_index];
+
+            if col.token_type == TokenType::STAR {
+                selected_columns = &schema.statement.columns;
+                break;
+            } else if rows[0].get(&col.lexeme).is_none() {
+                bail!("No such Column: {}", col.lexeme)
+            }
+        }
+
+        let mut limit: usize = 0;
+
+        if let Some(lim) = statement.limit {
+            limit = std::cmp::min(lim as usize, rows.len());
+        } else {
+            limit = rows.len();
+        }
+
+        for row_index in 0..limit {
+            let row = &rows[row_index];
+
+            if !statement.evaluate_where(&row)? {
+                for col_index in 0..selected_columns.len() {
+                    let col = &selected_columns[col_index];
+
+                    match row.get(&col.lexeme) {
+                        None => continue,
+
+                        Some((col_type, data)) => {
+                            col_type.print(data).with_context(|| {
+                                format!("Could not print column Type: {col_type:?}")
+                            })?;
+                        }
+                    }
+
+                    if col_index != selected_columns.len() - 1 {
+                        print!("|")
                     }
                 }
 
-                ".count" => {
-                    let tables = self.get_table_schemas();
-
-                    for table in tables {
-                        let count = self.count_records(&table.tbl_name)?;
-
-                        println!("{}: {}", table.tbl_name, count);
-                    }
-                }
-
-                sql_text => {
-                    let split = sql_text.split_whitespace().collect::<Vec<&str>>();
-
-                    if split.len() == 4 {
-                        let table_name = split.last().unwrap();
-
-                        println!("{}", self.count_records(&table_name.to_string())?)
-                    } else {}
-                    bail!("Missing or invalid command passed: {}", command)
-                }
-            },
-        };
+                print!("\n");
+            }
+        }
 
         Ok(())
     }
