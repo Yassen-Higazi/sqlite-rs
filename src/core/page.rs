@@ -154,63 +154,53 @@ impl<'file> Page<'file> {
         }
     }
 
-    pub fn get_payloads(&self, pointers: &mut Vec<u32>) -> Result<Vec<(u32, Rc<CellPayload>)>> {
-        let mut pages_len = 0;
-        let mut result: Vec<(u32, Rc<CellPayload>)> = vec![];
+    pub fn get_payloads(&self) -> Result<Vec<(i64, Rc<CellPayload>)>> {
+        let mut pointers: Vec<u32> = vec![];
 
-        for cell in &self.cells {
-            match cell.left_pointer {
-                None => {
+        let mut result: Vec<(i64, Rc<CellPayload>)> = vec![];
+
+        self._get_payloads(&mut pointers, &mut result)?;
+
+        // println!("Pointers: {pointers:?}");
+
+        Ok(result)
+    }
+
+    fn _get_payloads(&self, visited_pointers: &mut Vec<u32>, result: &mut Vec<(i64, Rc<CellPayload>)>) -> Result<()> {
+        match self.page_type {
+            TableBTree(Leaf) => {
+                for cell in &self.cells {
                     result.push((cell.row_id, Rc::clone(&cell.payload)))
                 }
+            }
 
-                Some(pointer) => {
-                    let mut page = Page::new(self.file, self.page_size, pointer as u64)?;
+            TableBTree(Interior) => {
+                let mut page_pointers: Vec<u32> = vec![];
 
-                    pages_len += 1;
-                    let mut i = 0;
+                for cell in &self.cells {
+                    if let Some(pointer) = cell.left_pointer {
+                        page_pointers.push(pointer);
+                    }
+                }
 
-                    while i < pages_len {
-                        match page.page_type {
-                            TableBTree(Interior) => {
-                                for cell in &page.cells {
-                                    match cell.left_pointer {
-                                        None => {
-                                            result.push((cell.row_id, Rc::clone(&cell.payload)))
-                                        }
+                if let Some(pointer) = self.right_most_pointer {
+                    page_pointers.push(pointer);
+                }
 
-                                        Some(pointer) => {
-                                            if !pointers.contains(&pointer) {
-                                                println!("Pointer: {pointer}");
-                                                pointers.push(pointer);
+                for pointer in page_pointers {
+                    if !visited_pointers.contains(&pointer) {
+                        visited_pointers.push(pointer);
 
-                                                let page = Page::new(self.file, self.page_size, pointer as u64)?;
+                        let mut page = Page::new(self.file, self.page_size, pointer as u64)?;
 
-                                                result.append(&mut page.get_payloads(pointers)?);
-
-                                                pages_len += 1;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            TableBTree(Leaf) => {
-                                let _ = page.cells.iter().map(|c| result.push((c.row_id, Rc::clone(&c.payload))));
-                                break;
-                            }
-
-                            otherwise => {
-                                println!("PageType: {otherwise:?}");
-                            }
-                        }
-
-                        i += 1;
+                        page._get_payloads(visited_pointers, result)?;
                     }
                 }
             }
+
+            _ => {}
         }
 
-        Ok(result)
+        Ok(())
     }
 }

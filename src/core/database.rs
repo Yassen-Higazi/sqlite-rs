@@ -46,25 +46,25 @@ impl<'file> Database<'file> {
         Ok(db)
     }
 
-    pub fn get_table_schemas(&self) -> Vec<SchemaTable> {
+    pub fn get_table_schemas(&self) -> Result<Vec<SchemaTable>> {
         let mut tables = Vec::with_capacity(self.root_page.cells.len());
 
-        for cell in &self.root_page.cells {
-            let schema = SchemaTable::from(&cell.payload);
+        for (_, payload) in &self.root_page.get_payloads()? {
+            let schema = SchemaTable::from(payload);
 
             if schema.schema_type == SchemaTypesTypes::Table {
                 tables.push(schema);
             }
         }
 
-        tables
+        Ok(tables)
     }
 
-    pub fn get_table_schema(&self, table_name: &String) -> Option<SchemaTable> {
+    pub fn get_table_schema(&self, table_name: &String) -> Result<Option<SchemaTable>> {
         let mut table: Option<SchemaTable> = None;
 
-        for cell in &self.root_page.cells {
-            let schema = SchemaTable::from(&cell.payload);
+        for (_, payload) in &self.root_page.get_payloads()? {
+            let schema = SchemaTable::from(payload);
 
             if schema.schema_type == SchemaTypesTypes::Table && &schema.tbl_name == table_name {
                 table = Some(schema);
@@ -72,7 +72,7 @@ impl<'file> Database<'file> {
             }
         }
 
-        table
+        Ok(table)
     }
 
     fn read_page(&self, page_number: i32) -> Result<Page> {
@@ -83,7 +83,7 @@ impl<'file> Database<'file> {
 
     pub fn count_records(&self, table_name: &String) -> Result<u16> {
         let table = self
-            .get_table_schema(table_name)
+            .get_table_schema(table_name)?
             .with_context(|| format!("No such table: {table_name}"))?;
 
         let page = self.read_page(table.root_page).with_context(|| {
@@ -103,9 +103,11 @@ impl<'file> Database<'file> {
 
         let mut column_vec = Vec::with_capacity(page.cells.len());
 
-        let mut pointers: Vec<u32> = vec![];
+        let payloads = page.get_payloads()?;
 
-        for (row_id, payload) in page.get_payloads(&mut pointers)? {
+        // println!("Rows len: {}", payloads.len());
+
+        for (row_id, payload) in payloads {
             let mut index = 0;
 
             let mut meta = Row::new();
@@ -114,10 +116,16 @@ impl<'file> Database<'file> {
                 return Ok(column_vec);
             }
 
+            // println!("RowId: {row_id}");
+
             for j in 0..create_statement.columns.len() {
                 let column_name = &create_statement.columns[j];
 
                 let cell_type = &payload.column_types[j];
+
+                // if row_id == 1 {
+                //     // println!("Column: Type -> {cell_type:?}, Name -> {}, Payload -> {payload:?}", column_name.lexeme);
+                // }
 
                 let len = cell_type.get_len() as usize;
 
@@ -135,8 +143,10 @@ impl<'file> Database<'file> {
                     );
                 }
 
+
                 index += len;
             }
+            // println!("Data: {meta:?}");
 
             column_vec.push(meta);
         }
@@ -160,11 +170,11 @@ impl<'file> Database<'file> {
                 match command.as_str() {
                     ".dbinfo" => {
                         println!("{}", self.header, );
-                        println!("number of tables:    {}", self.get_table_schemas().len());
+                        println!("number of tables:    {}", self.get_table_schemas()?.len());
                     }
 
                     ".tables" => {
-                        let tables = self.get_table_schemas();
+                        let tables = self.get_table_schemas()?;
 
                         for t in tables {
                             print!("{} ", t.tbl_name);
@@ -180,7 +190,9 @@ impl<'file> Database<'file> {
     }
 
     fn handle_select(&self, statement: &Statement) -> Result<()> {
-        let table_name = &statement.tables.first().unwrap().lexeme;
+        let table = statement.tables.first().with_context(|| "No table selected")?;
+
+        let table_name = &table.lexeme;
 
         let is_count = statement
             .columns
@@ -194,7 +206,7 @@ impl<'file> Database<'file> {
         }
 
         let schema = self
-            .get_table_schema(table_name)
+            .get_table_schema(table_name)?
             .with_context(|| format!("Could not Get Table Schema: {}", table_name))?;
 
         let rows = self.get_data(&schema)?;

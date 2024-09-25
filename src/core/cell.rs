@@ -192,9 +192,11 @@ impl CellPayload {
 #[derive(Debug, Clone)]
 pub struct PageCell {
     pub cell_size: u32,
-    pub row_id: u32,
+    pub row_id: i64,
     pub payload: Rc<CellPayload>,
     pub left_pointer: Option<u32>,
+
+    pub overflow: Vec<u8>,
 }
 
 impl PageCell {
@@ -205,6 +207,8 @@ impl PageCell {
     ) -> Result<PageCell> {
         let (size, size_var_end) =
             u32::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
+
+        // let is_overflowing = size > 4096;
 
         let mut next_index = std::cmp::min(size as usize, size_var_end);
 
@@ -229,18 +233,23 @@ impl PageCell {
             _ => None,
         };
 
-        let (rowid, rowid_var_end) = u32::decode_var(&buffer[next_index..buffer.len()])
+        let (rowid, rowid_var_end) = i64::decode_var(&buffer[next_index..buffer.len()])
             .with_context(|| "Could not parse cell rowid varint")?;
 
         next_index += std::cmp::min(rowid as usize, rowid_var_end);
 
         let record_buffer = buffer[next_index..].to_vec();
 
+        let overflow = vec![];
+
+        let payload = CellPayload::new(&record_buffer, btree_type, encoding)?;
+
         let cell = Self {
+            overflow,
             left_pointer,
             row_id: rowid,
             cell_size: size,
-            payload: Rc::new(CellPayload::new(&record_buffer, btree_type, encoding)?),
+            payload: Rc::new(payload),
         };
 
         Ok(cell)
