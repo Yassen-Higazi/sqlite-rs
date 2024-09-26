@@ -120,7 +120,7 @@ impl<'file> Page<'file> {
             if pointer != 0 {
                 let cell_vec = &buffer[(pointer as usize)..].to_vec();
 
-                let cell = PageCell::new(&cell_vec.to_vec(), page_type, &header.text_encoding)?;
+                let cell = PageCell::new(&cell_vec.to_vec(), page_type, page_size as u32, &header.text_encoding)?;
 
                 cells.push(cell);
             }

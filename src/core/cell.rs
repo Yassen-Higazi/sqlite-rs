@@ -203,12 +203,17 @@ impl PageCell {
     pub fn new(
         buffer: &Vec<u8>,
         btree_type: PageTypes,
+        usable_page_size: u32,
         encoding: &TextEncoding,
     ) -> Result<PageCell> {
         let (size, size_var_end) =
             u32::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
 
         // let is_overflowing = size > 4096;
+
+        let (is_overflowing, payload_size, overflow_size) = PageCell::is_overflowing(size, usable_page_size);
+
+        println!("Is overflowing: {is_overflowing}, Payload Size: {payload_size}, Overflow Size: {overflow_size}");
 
         let mut next_index = std::cmp::min(size as usize, size_var_end);
 
@@ -254,4 +259,24 @@ impl PageCell {
 
         Ok(cell)
     }
+
+    fn is_overflowing(payload_size: u32, usable_size: u32) -> (bool, u32, u32) {
+        let x = usable_size - 35;
+
+        if payload_size <= x {
+            (false, payload_size, 0)
+        } else {
+            let m = ((usable_size - 12) * 32 / 255) - 23;
+
+            let k = m + ((payload_size - m) % (usable_size - 4));
+
+
+            if k <= x {
+                (true, k, payload_size - k)
+            } else {
+                (true, m, payload_size - m)
+            }
+        }
+    }
 }
+

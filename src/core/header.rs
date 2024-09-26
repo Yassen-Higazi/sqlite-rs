@@ -135,16 +135,20 @@ impl DBHeader {
         })
     }
 
-    fn is_db_size_valid(&self) -> bool {
+    pub fn is_db_size_valid(&self) -> bool {
         // The in-header database size is only considered to be valid if it is non-zero
         // and the change counter exactly matches the version-valid-for number.
         self.db_size > 0 && (self.file_change_counter == self.change_counter)
     }
 
-    fn should_omit_pointer_map(&self) -> bool {
+    pub fn should_omit_pointer_map(&self) -> bool {
         // If the integer at offset 52 is zero then pointer-map (ptrmap) pages are omitted from the database file
         // and neither auto_vacuum nor incremental_vacuum are supported
         self.auto_vacuum == 0
+    }
+
+    pub fn get_usable_size(&self) -> u16 {
+        self.page_size - self.reserved_bytes_per_page
     }
 }
 
