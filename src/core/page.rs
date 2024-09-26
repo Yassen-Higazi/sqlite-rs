@@ -101,13 +101,14 @@ impl<'file> Page<'file> {
 
         let cell_pointers_start_index = match page_type {
             IndexBTree(btree_type) | TableBTree(btree_type) => match btree_type {
-                BTreePageSubType::Leaf => start_index + 8,
-                BTreePageSubType::Interior => start_index + 12,
+                Leaf => start_index + 8,
+                Interior => start_index + 12,
             },
+
             _ => start_index + 8,
         } as u16;
 
-        // each cell is 2 bytes
+        // each cell pointer is 2 bytes
         let cell_pointers_end_index = cell_pointers_start_index + num_of_cells * 2;
 
         for i in (cell_pointers_start_index..cell_pointers_end_index).step_by(2) {
@@ -120,7 +121,7 @@ impl<'file> Page<'file> {
             if pointer != 0 {
                 let cell_vec = &buffer[(pointer as usize)..].to_vec();
 
-                let cell = PageCell::new(&cell_vec.to_vec(), page_type, page_size as u32, &header.text_encoding)?;
+                let cell = PageCell::new(cell_vec, page_type, page_size as u64, &header.text_encoding)?;
 
                 cells.push(cell);
             }
@@ -154,10 +155,10 @@ impl<'file> Page<'file> {
         }
     }
 
-    pub fn get_payloads(&self) -> Result<Vec<(i64, Rc<CellPayload>)>> {
+    pub fn get_payloads(&self) -> Result<Vec<(u64, Rc<CellPayload>)>> {
         let mut pointers: Vec<u32> = vec![];
 
-        let mut result: Vec<(i64, Rc<CellPayload>)> = vec![];
+        let mut result: Vec<(u64, Rc<CellPayload>)> = vec![];
 
         self._get_payloads(&mut pointers, &mut result)?;
 
@@ -166,7 +167,7 @@ impl<'file> Page<'file> {
         Ok(result)
     }
 
-    fn _get_payloads(&self, visited_pointers: &mut Vec<u32>, result: &mut Vec<(i64, Rc<CellPayload>)>) -> Result<()> {
+    fn _get_payloads(&self, visited_pointers: &mut Vec<u32>, result: &mut Vec<(u64, Rc<CellPayload>)>) -> Result<()> {
         match self.page_type {
             TableBTree(Leaf) => {
                 for cell in &self.cells {

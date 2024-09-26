@@ -191,31 +191,34 @@ impl CellPayload {
 
 #[derive(Debug, Clone)]
 pub struct PageCell {
-    pub cell_size: u32,
-    pub row_id: i64,
+    pub cell_size: u64,
+    pub row_id: u64,
     pub payload: Rc<CellPayload>,
     pub left_pointer: Option<u32>,
 
-    pub overflow: Vec<u8>,
+    pub overflow_pointers: u32,
 }
 
 impl PageCell {
     pub fn new(
         buffer: &Vec<u8>,
         btree_type: PageTypes,
-        usable_page_size: u32,
+        usable_page_size: u64,
         encoding: &TextEncoding,
     ) -> Result<PageCell> {
         let (size, size_var_end) =
-            u32::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
+            u64::decode_var(buffer).with_context(|| "Could not parse cell size varint")?;
 
-        // let is_overflowing = size > 4096;
+        let (is_overflowing, payload_size, overflow_size) = PageCell::is_overflowing(btree_type, size, usable_page_size);
 
-        let (is_overflowing, payload_size, overflow_size) = PageCell::is_overflowing(size, usable_page_size);
+        let mut end_index = buffer.len();
 
-        println!("Is overflowing: {is_overflowing}, Payload Size: {payload_size}, Overflow Size: {overflow_size}");
+        if is_overflowing {
+            // end_index = (end_index - overflow_size as usize);
+            println!("Is overflowing: {is_overflowing}, Size: {size}, Buffer len: {end_index}, Payload Size: {payload_size}, Overflow Size: {overflow_size}");
+        }
 
-        let mut next_index = std::cmp::min(size as usize, size_var_end);
+        let mut next_index = std::cmp::min(payload_size as usize, size_var_end);
 
         let left_pointer: Option<u32> = match btree_type {
             PageTypes::IndexBTree(sub_type) | PageTypes::TableBTree(sub_type) => match sub_type {
@@ -238,43 +241,71 @@ impl PageCell {
             _ => None,
         };
 
-        let (rowid, rowid_var_end) = i64::decode_var(&buffer[next_index..buffer.len()])
+        let (rowid, rowid_var_end) = u64::decode_var(&buffer[next_index..end_index])
             .with_context(|| "Could not parse cell rowid varint")?;
 
         next_index += std::cmp::min(rowid as usize, rowid_var_end);
 
-        let record_buffer = buffer[next_index..].to_vec();
-
-        let overflow = vec![];
+        let record_buffer = buffer[next_index..end_index].to_vec();
 
         let payload = CellPayload::new(&record_buffer, btree_type, encoding)?;
 
+        let mut overflow = 0;
+
+        if is_overflowing {
+            let len = end_index;
+
+            let overflow_page_pointer = u32::from_be_bytes([
+                buffer[len - 4],
+                buffer[len - 3],
+                buffer[len - 2],
+                buffer[len - 1],
+            ]);
+
+            println!("Buffer: {:?}", buffer[len - 20..].to_vec());
+
+            overflow = overflow_page_pointer;
+
+            println!("Overflow page Pointer: {overflow_page_pointer}");
+        }
+
         let cell = Self {
-            overflow,
             left_pointer,
             row_id: rowid,
             cell_size: size,
             payload: Rc::new(payload),
+            overflow_pointers: overflow,
         };
 
         Ok(cell)
     }
 
-    fn is_overflowing(payload_size: u32, usable_size: u32) -> (bool, u32, u32) {
-        let x = usable_size - 35;
+    fn is_overflowing(page_type: PageTypes, payload_size: u64, page_size: u64) -> (bool, u64, u64) {
+        // TODO: pass usable page from db header
+        let usable_size = page_size - 64;
 
-        if payload_size <= x {
+        let max_payload_size = match page_type {
+            PageTypes::TableBTree(BTreePageSubType::Leaf) => {
+                usable_size - 35
+            }
+
+            PageTypes::IndexBTree(_) => {
+                ((usable_size - 12) * 64 / 255) - 23
+            }
+
+            _ => payload_size
+        };
+
+        if payload_size <= max_payload_size {
             (false, payload_size, 0)
         } else {
-            let m = ((usable_size - 12) * 32 / 255) - 23;
+            let min_payload_size = ((usable_size - 12) * 32 / 255) - 23;
+            let in_page_payload_size = min_payload_size + ((payload_size - min_payload_size) % (usable_size - 4));
 
-            let k = m + ((payload_size - m) % (usable_size - 4));
-
-
-            if k <= x {
-                (true, k, payload_size - k)
+            if in_page_payload_size <= max_payload_size {
+                (true, in_page_payload_size, payload_size - in_page_payload_size)
             } else {
-                (true, m, payload_size - m)
+                (true, min_payload_size, payload_size - min_payload_size)
             }
         }
     }
