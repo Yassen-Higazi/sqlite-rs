@@ -10,31 +10,7 @@ is
 [stored in B-trees](https://jvns.ca/blog/2014/10/02/how-does-sqlite-work-part-2-btrees/)
 and more.
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
-
-# Passing the first stage
-
-The entry point for your SQLite implementation is in `src/main.rs`. Study and
-uncomment the relevant code, and push your changes to pass the first stage:
-
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
-```
-
-Time to move on to the next stage!
-
-# Stage 2 & beyond
-
-Note: This section is for stages 2 and beyond.
-
-1. Ensure you have `cargo (1.80)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.rs`. This command compiles your Rust project, so it might be slow
-   the first time you run it. Subsequent runs will be fast.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+**Note**: You can try the challenge on [codecrafters.io](https://codecrafters.io).
 
 # Sample Databases
 
@@ -57,13 +33,13 @@ $ sqlite3 sample.db "select id, name from apples"
 There are two other databases that you can use:
 
 1. `superheroes.db`:
-   - This is a small version of the test database used in the table-scan stage.
-   - It contains one table: `superheroes`.
-   - It is ~1MB in size.
+    - This is a small version of the test database used in the table-scan stage.
+    - It contains one table: `superheroes`.
+    - It is ~1MB in size.
 1. `companies.db`:
-   - This is a small version of the test database used in the index-scan stage.
-   - It contains one table: `companies`, and one index: `idx_companies_country`
-   - It is ~7MB in size.
+    - This is a small version of the test database used in the index-scan stage.
+    - It contains one table: `companies`, and one index: `idx_companies_country`
+    - It is ~7MB in size.
 
 These aren't included in the repository because they're large in size. You can
 download them by running this script:
@@ -75,3 +51,60 @@ download them by running this script:
 If the script doesn't work for some reason, you can download the databases
 directly from
 [codecrafters-io/sample-sqlite-databases](https://github.com/codecrafters-io/sample-sqlite-databases).
+
+## Installation and run
+
+To run the application first clone the repo and run the application using `./run.sh` script
+
+### Examples
+
+#### Get DB Info
+
+```shell
+$ ./run.sh sample.db .dbinfo
+
+database page size:  4096
+write format:        1
+read format:         1
+reserved bytes:      64
+file change counter: 5
+database page count: 0
+freelist page count: 0
+schema cookie:       2
+schema format:       4
+default cache size:  0
+autovacuum top root: 0
+incremental vacuum:  0
+text encoding:       1 (utf-8)
+user version:        0
+application id:      0
+software version:    3034000
+number of tables:    3
+
+```
+
+#### Get Tables
+
+```shell
+$ ./run.sh sample.db .tables
+
+apples sqlite_sequence oranges 
+```
+
+#### Query Data
+
+```shell
+$ ./run.sh sample.db "select * from apples"
+
+1|Granny Smith|Light Green
+2|Fuji|Red
+3|Honeycrisp|Blush Red
+4|Golden Delicious|Yellow
+```
+
+```shell
+$ ./run.sh sample.db "select * from apples where color != 'Yellow' limit 2"
+
+1|Granny Smith|Light Green
+2|Fuji|Red
+```
